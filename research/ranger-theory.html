@@ -1,0 +1,482 @@
+<title>RANGER — Incoherence-Native Elastic Models</title>
+<style>
+  :root{
+    --ground:#0b1116; --panel:#111a22; --panel-2:#0e161d; --line:#1e2c37;
+    --ink:#e7eef3; --ink-dim:#9fb2bf; --ink-faint:#6d818f;
+    --signal:#3bc9b0; --signal-deep:#1f8f7c; --couple:#a888f0;
+    --warn:#e0a13a; --crit:#e5544e; --ok:#3bc9b0;
+    --grid:rgba(59,201,176,.14);
+    --mono:ui-monospace,"SF Mono","Cascadia Code","JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --maxw:1080px;
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      --ground:#eef2f4; --panel:#ffffff; --panel-2:#f5f8f9; --line:#d7e0e4;
+      --ink:#14232c; --ink-dim:#48606c; --ink-faint:#7d919b;
+      --signal:#0f9e88; --signal-deep:#0b7d6c; --couple:#7a54d6;
+      --warn:#b9781a; --crit:#cc3b36; --ok:#0f9e88;
+      --grid:rgba(15,158,136,.16);
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0b1116; --panel:#111a22; --panel-2:#0e161d; --line:#1e2c37;
+    --ink:#e7eef3; --ink-dim:#9fb2bf; --ink-faint:#6d818f;
+    --signal:#3bc9b0; --signal-deep:#1f8f7c; --couple:#a888f0;
+    --warn:#e0a13a; --crit:#e5544e; --ok:#3bc9b0; --grid:rgba(59,201,176,.14);
+  }
+  :root[data-theme="light"]{
+    --ground:#eef2f4; --panel:#ffffff; --panel-2:#f5f8f9; --line:#d7e0e4;
+    --ink:#14232c; --ink-dim:#48606c; --ink-faint:#7d919b;
+    --signal:#0f9e88; --signal-deep:#0b7d6c; --couple:#7a54d6;
+    --warn:#b9781a; --crit:#cc3b36; --ok:#0f9e88; --grid:rgba(15,158,136,.16);
+  }
+
+  *{box-sizing:border-box}
+  body{background:var(--ground);color:var(--ink);font-family:var(--sans);
+    line-height:1.6;-webkit-font-smoothing:antialiased;margin:0}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+  a{color:var(--signal);text-decoration:none;border-bottom:1px solid transparent}
+  a:hover{border-bottom-color:var(--signal)}
+  :focus-visible{outline:2px solid var(--signal);outline-offset:3px;border-radius:2px}
+
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--signal);font-weight:600}
+  h1,h2,h3{text-wrap:balance;line-height:1.12;margin:0}
+  .mono{font-family:var(--mono)}
+  .tnum{font-variant-numeric:tabular-nums}
+  .dim{color:var(--ink-dim)}
+  .faint{color:var(--ink-faint)}
+
+  /* ---------- hero ---------- */
+  header.hero{border-bottom:1px solid var(--line);
+    background:
+      radial-gradient(120% 90% at 82% -10%, color-mix(in oklab,var(--signal) 12%,transparent), transparent 60%),
+      linear-gradient(180deg,var(--panel-2),var(--ground));
+    padding:60px 0 40px}
+  .hero-top{display:flex;justify-content:space-between;align-items:center;gap:16px;
+    font-family:var(--mono);font-size:12px;letter-spacing:.12em;color:var(--ink-faint)}
+  .hero h1{font-family:var(--mono);font-weight:700;letter-spacing:-.02em;
+    font-size:clamp(52px,11vw,120px);margin:26px 0 4px;
+    background:linear-gradient(180deg,var(--ink),color-mix(in oklab,var(--ink) 62%,var(--signal)));
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero .expand{font-family:var(--mono);font-size:clamp(13px,2vw,15px);letter-spacing:.02em;color:var(--signal);margin-bottom:22px}
+  .hero .expand b{color:var(--ink);font-weight:600}
+  .thesis{font-size:clamp(19px,2.6vw,26px);line-height:1.4;max-width:760px;color:var(--ink);
+    font-weight:400}
+  .thesis .k{color:var(--signal);font-weight:600}
+  .thesis .o{color:var(--warn);font-weight:600}
+
+  figure.viz{margin:34px 0 8px;border:1px solid var(--line);border-radius:12px;overflow:hidden;
+    background:var(--panel-2)}
+  .viz canvas{display:block;width:100%;height:300px}
+  figcaption{display:flex;flex-wrap:wrap;gap:8px 22px;align-items:center;justify-content:space-between;
+    padding:12px 16px;border-top:1px solid var(--line);font-family:var(--mono);font-size:12px;color:var(--ink-dim)}
+  .legend{display:flex;gap:16px;flex-wrap:wrap}
+  .legend span{display:inline-flex;align-items:center;gap:7px}
+  .swatch{width:11px;height:11px;border-radius:2px;display:inline-block}
+  .readout b{color:var(--ink)}
+  button.toggle{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+    background:transparent;color:var(--signal);border:1px solid var(--line);border-radius:6px;
+    padding:6px 12px;cursor:pointer}
+  button.toggle:hover{border-color:var(--signal)}
+
+  /* ---------- sections ---------- */
+  section{padding:56px 0;border-bottom:1px solid var(--line)}
+  .sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:26px;flex-wrap:wrap}
+  .sec-head .num{font-family:var(--mono);color:var(--signal);font-size:13px;letter-spacing:.1em}
+  .sec-head h2{font-size:clamp(24px,3.4vw,34px);font-weight:650;letter-spacing:-.01em}
+  .lede{font-size:17px;color:var(--ink-dim);max-width:70ch;margin:-10px 0 26px}
+
+  /* equation panel */
+  .eq{display:grid;grid-template-columns:1.1fr .9fr;gap:20px;align-items:stretch}
+  @media(max-width:720px){.eq{grid-template-columns:1fr}}
+  .eq-box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px 26px}
+  .eq-box .formula{font-family:var(--mono);font-size:clamp(18px,3vw,24px);color:var(--ink);
+    letter-spacing:.01em;margin:6px 0 12px}
+  .eq-box .formula em{color:var(--warn);font-style:normal}
+  .eq-box .formula b{color:var(--signal);font-weight:700}
+  .dial{display:flex;gap:14px;align-items:flex-start;padding:12px 0;border-top:1px dashed var(--line)}
+  .dial .tag{font-family:var(--mono);font-size:12px;padding:3px 8px;border-radius:5px;white-space:nowrap;
+    border:1px solid var(--line)}
+  .tag.r{color:var(--warn);border-color:color-mix(in oklab,var(--warn) 45%,var(--line))}
+  .tag.b{color:var(--signal);border-color:color-mix(in oklab,var(--signal) 45%,var(--line))}
+
+  /* causal chain */
+  .chain{display:flex;flex-direction:column;gap:0}
+  .step{display:grid;grid-template-columns:44px 1fr;gap:18px;padding:14px 0;position:relative}
+  .step .idx{font-family:var(--mono);font-size:13px;color:var(--ground);background:var(--signal);
+    width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-weight:700}
+  .step:not(:last-child) .idx::after{content:"";position:absolute;left:14px;top:44px;bottom:-14px;width:2px;
+    background:linear-gradient(180deg,var(--signal),var(--line))}
+  .step .body b{color:var(--ink)}
+  .step.crit .idx{background:var(--crit);color:#fff}
+  .step .body{color:var(--ink-dim)}
+  .step .body .lab{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--ink-faint);display:block;margin-bottom:1px}
+
+  /* fact cards */
+  .facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;
+    background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .fact{background:var(--panel);padding:18px 18px}
+  .fact .n{font-family:var(--mono);font-size:clamp(22px,3.6vw,30px);font-weight:700;color:var(--signal);
+    letter-spacing:-.01em}
+  .fact .l{font-size:12.5px;color:var(--ink-dim);margin-top:4px;line-height:1.35}
+
+  /* couplings */
+  .couples{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+  .couple{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--couple);
+    border-radius:10px;padding:18px}
+  .couple .h{font-family:var(--mono);font-size:13.5px;color:var(--ink);font-weight:600;margin-bottom:6px}
+  .couple .h .x{color:var(--couple)}
+  .couple p{margin:0;font-size:14px;color:var(--ink-dim)}
+
+  /* matrix */
+  .mtx-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:12px}
+  table.mtx{border-collapse:collapse;width:100%;min-width:720px;font-size:13px}
+  table.mtx th,table.mtx td{padding:9px 8px;text-align:center;border:1px solid var(--line)}
+  table.mtx thead th{font-family:var(--mono);font-size:11px;letter-spacing:.03em;color:var(--ink-dim);
+    font-weight:500;background:var(--panel-2);position:sticky;top:0}
+  table.mtx tbody th{font-family:var(--mono);font-size:12px;text-align:left;color:var(--ink);
+    background:var(--panel-2);white-space:nowrap;font-weight:600}
+  .cell{font-family:var(--mono);font-weight:700;font-size:14px}
+  .c-ok{color:var(--ok)} .c-warn{color:var(--warn)} .c-neu{color:var(--ink-faint)}
+  .c-link{color:var(--couple)}
+  .cell small{display:block;font-weight:400;font-size:9.5px;letter-spacing:.02em;color:var(--ink-faint);
+    text-transform:uppercase;margin-top:2px}
+  .mtx-key{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;font-family:var(--mono);font-size:12px;color:var(--ink-dim)}
+  .mtx-key span{display:inline-flex;gap:7px;align-items:center}
+
+  /* pillars */
+  .pillars{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+  @media(max-width:720px){.pillars{grid-template-columns:1fr}}
+  .pillar{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px 22px 20px;
+    display:flex;flex-direction:column;gap:12px}
+  .pillar .p-top{display:flex;align-items:center;gap:12px}
+  .pillar .p-num{font-family:var(--mono);font-weight:700;color:var(--ground);background:var(--signal);
+    width:26px;height:26px;border-radius:6px;display:grid;place-items:center;font-size:13px}
+  .pillar h3{font-size:18px;font-weight:640;letter-spacing:-.01em}
+  .pillar p{margin:0;font-size:14px;color:var(--ink-dim)}
+  .pred{border-top:1px dashed var(--line);padding-top:12px;font-size:13.5px}
+  .pred .plab{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--signal);display:block;margin-bottom:3px}
+  .pred b{color:var(--ink)}
+  .pred .fals{color:var(--crit)}
+
+  /* bottlenecks */
+  .bottles{display:flex;flex-direction:column;gap:12px}
+  .bottle{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;
+    display:grid;grid-template-columns:26px 1fr;gap:14px}
+  .bottle .bi{font-family:var(--mono);font-weight:700;color:var(--warn)}
+  .bottle .bh{font-weight:600;color:var(--ink);font-size:15px;margin-bottom:3px}
+  .bottle .plain{font-size:14px;color:var(--ink-dim)}
+  .bottle .fix{font-size:13.5px;color:var(--ink-dim);margin-top:6px}
+  .bottle .fix b{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--signal);font-weight:600;margin-right:6px}
+
+  /* frontier note */
+  .frontier{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px 24px}
+  .frontier .kkt{font-family:var(--mono);font-size:clamp(12px,2.2vw,15px);color:var(--ink);
+    background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto;
+    white-space:pre;margin:12px 0}
+  .frontier .knobs{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+  .knob{font-family:var(--mono);font-size:12px;border:1px solid var(--line);border-radius:20px;
+    padding:5px 13px;color:var(--ink-dim)}
+  .knob b{color:var(--signal)}
+
+  footer{padding:40px 0 60px;color:var(--ink-faint);font-size:13px}
+  footer .cite{font-family:var(--mono);font-size:11.5px;line-height:1.9;color:var(--ink-dim)}
+  .caveat{background:color-mix(in oklab,var(--warn) 8%,var(--panel));border:1px solid color-mix(in oklab,var(--warn) 30%,var(--line));
+    border-radius:10px;padding:14px 18px;font-size:13.5px;color:var(--ink-dim);margin-top:22px}
+  .caveat b{color:var(--warn)}
+</style>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="hero-top">
+      <span>AEFINITY · RANGER · v0.1 THEORY</span>
+      <span>2026-07-14 · single-GPU runnable</span>
+    </div>
+    <div class="eyebrow">Edge-model architecture × quantization · a hybrid convergence</div>
+    <h1>RANGER</h1>
+    <div class="expand"><b>R</b>otation-Aligned · <b>N</b>ested-precision · <b>G</b>aussianized · <b>E</b>lastic <b>R</b>epresentation</div>
+    <p class="thesis">
+      Quantizability is a <span class="k">trainable architectural property</span>, not a post-hoc treatment.
+      Every winning quantizer and every winning edge trick fights the <span class="o">same enemy</span> —
+      the outlier structure of weights &amp; activations — from two ends of one causal chain.
+      Co-design the model so its numbers are <span class="k">born incoherent</span>, and low bits stop hurting.
+    </p>
+
+    <figure class="viz">
+      <canvas id="c" aria-label="Visualization: an outlier spike exceeding the quantization grid, morphing into a spread distribution that fits within it"></canvas>
+      <figcaption>
+        <div class="legend">
+          <span><i class="swatch" style="background:var(--crit)"></i> outlier / clipped</span>
+          <span><i class="swatch" style="background:var(--signal)"></i> signal within grid</span>
+          <span><i class="swatch" style="background:var(--grid);border:1px solid var(--signal-deep)"></i> quant levels (b-bit)</span>
+        </div>
+        <div class="readout">R = <b id="rval" class="tnum">—</b> · quant-MSE ∝ R²/2²ᵇ = <b id="mval" class="tnum">—</b></div>
+        <button class="toggle" id="tg" aria-pressed="false">state: raw ⇄ incoherence-native</button>
+      </figcaption>
+    </figure>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <div class="sec-head"><span class="num">§1</span><h2>The one equation everything orbits</h2></div>
+    <p class="lede">A uniform quantizer has exactly two dials. The entire field — rotations, codebooks, ternary, microscaling, QAT — is a different way to move one of them.</p>
+    <div class="eq">
+      <div class="eq-box">
+        <div class="mono faint" style="font-size:12px;letter-spacing:.1em">STEP &amp; ERROR · b BITS OVER RANGE R = max|x|</div>
+        <div class="formula">Δ = <em>R</em> / 2<sup>b</sup></div>
+        <div class="formula">MSE ≈ Δ²/12 = <em>R²</em> / (12·2<sup><b>2b</b></sup>)</div>
+        <p class="dim" style="font-size:14px;margin:4px 0 0">Error falls 4× per bit — but rises with the <b style="color:var(--warn)">square</b> of the largest value. One outlier that doubles R costs a full bit of precision for <em>every</em> weight sharing that scale.</p>
+      </div>
+      <div class="eq-box" style="display:flex;flex-direction:column;justify-content:center">
+        <div class="dial" style="border-top:none;padding-top:0">
+          <span class="tag r">R ↓</span>
+          <span class="dim" style="font-size:13.5px">Suppress outliers: AWQ (scale) · QuaRot/SpinQuant (rotate) · VQ/trellis (change the geometry) · Super-Weight/OWQ (exempt them) · <b style="color:var(--ink)">QK-Norm / gated attention (kill at source)</b></span>
+        </div>
+        <div class="dial">
+          <span class="tag b">spend b</span>
+          <span class="dim" style="font-size:13.5px">Put bits where curvature demands: GPTQ/OBQ · KronQ (Kronecker Hessian) · nested MatFormer precision · per-role formats {2,4,8}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sec-head"><span class="num">§2</span><h2>The causal chain — one enemy, seven links</h2></div>
+    <p class="lede">Massive activations, attention sinks, residual sinks and super-weights are <b>the same phenomenon</b>. Quantizers intervene late; architecture can intervene early.</p>
+    <div class="chain">
+      <div class="step"><span class="idx">1</span><div class="body"><span class="lab">pre-norm training</span><b>Stability needs a pressure valve.</b> Pre-norm + RMSNorm concentrates gradients on a few tokens. <span class="faint">(Attention Sinks Induce Gradient Sinks, 2603.17771)</span></div></div>
+      <div class="step"><span class="idx">2</span><div class="body"><span class="lab">gradient sink</span>The model parks a constant "do-nothing" bias on sink tokens (often BOS). <span class="faint">(Active-Dormant Heads, 2410.13835)</span></div></div>
+      <div class="step"><span class="idx">3</span><div class="body"><span class="lab">attention / residual sink</span>Sinks are <b>outlier-driven rescaling</b> interacting with RMSNorm. <span class="faint">(Unified View of Sinks → W4A4, 2601.22966)</span></div></div>
+      <div class="step"><span class="idx">4</span><div class="body"><span class="lab">massive activations</span>A few residual dims become 10³–10⁴× larger — learned constant biases. <span class="faint">(Massive Activations, 2402.17762 · emerge at one layer, 2605.08504)</span></div></div>
+      <div class="step crit"><span class="idx">5</span><div class="body"><span class="lab">dynamic range blows up</span><b>R = max|x| explodes.</b> This is the failure point — the R in §1.</div></div>
+      <div class="step crit"><span class="idx">6</span><div class="body"><span class="lab">error ∝ R²</span>Uniform-quant error explodes; every other weight loses precision.</div></div>
+      <div class="step crit"><span class="idx">7</span><div class="body"><span class="lab">low-bit fails</span>Sub-4-bit collapses — unless you intervened upstream.</div></div>
+    </div>
+    <div class="caveat"><b>Why "just clip the outliers" fails:</b> the sink is an <b>adaptive response to a real training need</b> (link 1). Delete it and training destabilizes. You must give the model a <b>cleaner mechanism for the same job</b> — which is why architectural fixes (QK-Norm, gated attention, learnable residual gain) succeed where clipping doesn't.</div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sec-head"><span class="num">§3</span><h2>Reference point — Gemma 4 (arXiv 2607.02770, 2 Jul 2026)</h2></div>
+    <p class="lede">Twelve days old at the time of writing. It already ships three of RANGER's four ideas in parts — the report even admits Gemma's activation-outlier problem and patches it with a per-block scalar scale.</p>
+    <div class="facts">
+      <div class="fact"><div class="n">5:1</div><div class="l">local : global attention (4:1 on E2B) — sliding-window KV compression</div></div>
+      <div class="fact"><div class="n tnum">−37.5%</div><div class="l">global KV cache: p-RoPE (p=0.25) + keys-reused-as-values + KV sharing</div></div>
+      <div class="fact"><div class="n">2.3B</div><div class="l">E2B <b>effective</b> compute out of 5B total — Per-Layer Embeddings offloaded</div></div>
+      <div class="fact"><div class="n mono">int2/4</div><div class="l">mobile QAT: per-channel int2+int4 weights, int8 activations</div></div>
+      <div class="fact"><div class="n tnum">−78%</div><div class="l">audio encoder on-disk (390→87 MB) via per-cluster {2,4,8}-bit — <b>and quality rose</b></div></div>
+      <div class="fact"><div class="n tnum">0.8GB</div><div class="l">E2B quantized (from 4.6 GB bf16) — a phone-sized frontier model</div></div>
+    </div>
+    <p class="dim" style="font-size:13.5px;margin-top:16px">Its own Arena-Text board (19 Jun 2026) ranks <b style="color:var(--ink)">Claude Fable 5 #1 · Elo 1508</b>; Gemma 4 31B is the top open dense model at 1451. The frontier ceiling is set — RANGER's game is pushing <b>size × precision</b> down while holding that ceiling.</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sec-head"><span class="num">§4</span><h2>Four under-exploited couplings</h2></div>
+    <p class="lede">Where an architecture atom and a quantization atom reinforce each other — the "safe crossover points" the theory is built on.</p>
+    <div class="couples">
+      <div class="couple"><div class="h">p-RoPE <span class="x">⊕</span> rotation</div><p>RoPE seeds KV outliers; p-RoPE leaves a (1−p) position-free subspace. That subspace is <b>exactly what QuaRot/SpinQuant can Hadamard-rotate for free</b> — partial RoPE enlarges the rotatable space.</p></div>
+      <div class="couple"><div class="h">AltUp width <span class="x">⊕</span> low bits</div><p>Widening by K spreads energy over K× more coords → per-dim variance ↓1/K → more Gaussian, more incoherent → afford ≈½·log₂K <b>fewer bits</b> at equal error. Width and bits are one frontier.</p></div>
+      <div class="couple"><div class="h">MatFormer <span class="x">⊕</span> mixed precision</div><p>Nested submodels induce a <b>trained importance ordering</b> — the inner slice must stand alone. That ordering <b>is</b> the bit-allocation prior mixed-precision normally estimates with a Hessian.</p></div>
+      <div class="couple"><div class="h">QK-Norm / gated attn <span class="x">⊕</span> rotation</div><p>Kill the sink at the source (Quantizable Transformers → INT8 free) so the residual rotation is small enough to <b>fold into weights</b> — erasing the online-Hadamard latency.</p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sec-head"><span class="num">§5</span><h2>Compatibility matrix</h2></div>
+    <p class="lede">What stacks and what fights. Read across a row (architecture atom) against a column (quantization atom).</p>
+    <div class="mtx-scroll">
+      <table class="mtx">
+        <thead><tr><th>arch ↓ / quant →</th><th>QAT</th><th>Rotation</th><th>VQ / trellis</th><th>Ternary</th><th>µscale FP4</th><th>Mixed / low-rank</th><th>KV-quant</th></tr></thead>
+        <tbody>
+          <tr><th>PLE</th><td class="cell c-ok">✓</td><td class="cell c-neu">–</td><td class="cell c-ok">✓<small>offload</small></td><td class="cell c-ok">✓</td><td class="cell c-neu">–</td><td class="cell c-ok">✓</td><td class="cell c-neu">–</td></tr>
+          <tr><th>MatFormer</th><td class="cell c-ok">✓</td><td class="cell c-neu">–</td><td class="cell c-ok">✓</td><td class="cell c-warn">⚠</td><td class="cell c-ok">✓</td><td class="cell c-link">🔗<small>nested</small></td><td class="cell c-neu">–</td></tr>
+          <tr><th>AltUp</th><td class="cell c-ok">✓</td><td class="cell c-link">🔗<small>incoherence</small></td><td class="cell c-ok">✓</td><td class="cell c-ok">✓</td><td class="cell c-ok">✓</td><td class="cell c-ok">✓</td><td class="cell c-neu">–</td></tr>
+          <tr><th>QK-Norm / gated</th><td class="cell c-ok">✓</td><td class="cell c-link">🔗<small>less needed</small></td><td class="cell c-ok">✓</td><td class="cell c-ok">✓</td><td class="cell c-ok">✓</td><td class="cell c-ok">✓</td><td class="cell c-ok">✓</td></tr>
+          <tr><th>local:global</th><td class="cell c-ok">✓</td><td class="cell c-ok">✓</td><td class="cell c-ok">✓</td><td class="cell c-ok">✓</td><td class="cell c-ok">✓</td><td class="cell c-link">🔗<small>split KV</small></td><td class="cell c-ok">✓</td></tr>
+          <tr><th>p-RoPE</th><td class="cell c-ok">✓</td><td class="cell c-link">🔗<small>rotatable</small></td><td class="cell c-neu">–</td><td class="cell c-neu">–</td><td class="cell c-neu">–</td><td class="cell c-neu">–</td><td class="cell c-ok">✓</td></tr>
+          <tr><th>MoE</th><td class="cell c-warn">⚠<small>router</small></td><td class="cell c-ok">✓</td><td class="cell c-warn">⚠<small>per-expert</small></td><td class="cell c-warn">⚠</td><td class="cell c-ok">✓</td><td class="cell c-ok">✓</td><td class="cell c-neu">–</td></tr>
+          <tr><th>SSM / LFM2</th><td class="cell c-ok">✓</td><td class="cell c-warn">⚠<small>MambaQuant</small></td><td class="cell c-ok">✓</td><td class="cell c-warn">⚠</td><td class="cell c-ok">✓</td><td class="cell c-ok">✓</td><td class="cell c-neu">n/a</td></tr>
+          <tr><th>MTP drafter</th><td class="cell c-ok">✓</td><td class="cell c-neu">–</td><td class="cell c-ok">✓</td><td class="cell c-link">🔗<small>risk-free</small></td><td class="cell c-ok">✓</td><td class="cell c-neu">–</td><td class="cell c-neu">–</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="mtx-key">
+      <span><b class="c-ok">✓</b> synergistic</span>
+      <span><b class="c-neu">–</b> orthogonal</span>
+      <span><b class="c-warn">⚠</b> conflict — needs care</span>
+      <span><b class="c-link">🔗</b> novel coupling RANGER exploits</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sec-head"><span class="num">§6</span><h2>The four pillars — each a falsifiable prediction</h2></div>
+    <div class="pillars">
+      <div class="pillar">
+        <div class="p-top"><span class="p-num">1</span><h3>Incoherence-Native residual</h3></div>
+        <p>QK-Norm + gated/clipped attention + learnable residual gain so sinks never grow. p-RoPE frees a subspace; a <b>fixed Hadamard folded into weights</b> (zero runtime cost); kurtosis/spectral-decay reg during QAT.</p>
+        <div class="pred"><span class="plab">Predict P1</span><b>W4A4 &amp; W2A8 at &lt;2% drop with no online rotation</b>, vs &gt;8% (or a mandatory online Hadamard) for vanilla. <span class="fals">Falsified if it still needs online rotation, or reg costs &gt;1% FP quality.</span></div>
+      </div>
+      <div class="pillar">
+        <div class="p-top"><span class="p-num">2</span><h3>Nested elastic precision</h3></div>
+        <p>Train a MatFormer family; inner slice at 8-bit/FP, progressively lower-precision shells. Importance ↔ bits aligned <b>by construction</b>. Low-rank FP16 residual (HGF / Mixture-of-LoRAs) catches super-weights.</p>
+        <div class="pred"><span class="plab">Predict P2</span>At <b>equal average bits</b>, nested ≥ uniform <b>and</b> ≥ Hessian-sensitivity mixed-precision. <span class="fals">Falsified if estimated-sensitivity matches it within noise.</span></div>
+      </div>
+      <div class="pillar">
+        <div class="p-top"><span class="p-num">3</span><h3>Curvature-matched formats</h3></div>
+        <p>By role, using a cheap Kronecker Hessian (KronQ): FFN→VQ/trellis/GSQ · global KV→rotation+FP4 · local KV→hard low-bit · PLE→CPU codebook · router/super-weights→FP16 · drafter→ternary.</p>
+        <div class="pred"><span class="plab">Predict P3</span>Per-role formats beat one global format at equal bytes by <b>≥1 MMLU pt / ≥5% PPL</b> — Gemma 4's audio {2,4,8} result, generalized to the LLM.</div>
+      </div>
+      <div class="pillar">
+        <div class="p-top"><span class="p-num">4</span><h3>Ride the capacity–precision duality</h3></div>
+        <p>Widen cheaply with AltUp, then spend the incoherence dividend on fewer bits. Co-tune (K, b) toward the equal-marginal-returns point.</p>
+        <div class="pred"><span class="plab">Predict P4</span>AltUp-K× widening buys <b>≈½·log₂K fewer bits</b> at equal quality, and activation kurtosis drops with K. <span class="fals">Falsified if widening doesn't lower kurtosis or buy bits.</span> The cleanest single test of the thesis.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sec-head"><span class="num">§7</span><h2>The crossover point, formally</h2></div>
+    <p class="lede">The "safe crossover" is where three knobs — bits, AltUp width, nesting depth — buy the same quality per joule. Most systems max one and leave the others on the table.</p>
+    <div class="frontier">
+      <div class="mono faint" style="font-size:12px;letter-spacing:.1em">CO-OPTIMIZATION · EQUAL-MARGINAL-RETURNS (KKT) AT THE OPTIMUM</div>
+      <div class="kkt">minimize   L(width w, bits b, nesting s)
+subject to Compute(w,s) + Memory(w,b,s) ≤ Budget
+
+   ∂L/∂w · (∂Budget/∂w)⁻¹  =  ∂L/∂b · (∂Budget/∂b)⁻¹  =  ∂L/∂s · (∂Budget/∂s)⁻¹</div>
+      <p class="dim" style="font-size:14px;margin:0">At the legendary point, one more bit, one more slice of AltUp width, and one more nesting shell all return the same quality per joule.</p>
+      <div class="knobs"><span class="knob"><b>w</b> AltUp width</span><span class="knob"><b>b</b> bit-width</span><span class="knob"><b>s</b> nesting depth</span></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sec-head"><span class="num">§8</span><h2>Bottlenecks, in plain language</h2></div>
+    <p class="lede">The six real obstacles — stated simply, with the first workaround to try. These are the spots where the theory could break, and where a second pair of eyes helps.</p>
+    <div class="bottles">
+      <div class="bottle"><span class="bi">A</span><div><div class="bh">The spin and the compass want the same knob</div><div class="plain">To hide loud outliers we "spin" the numbers (rotation). But the model's sense of word position (RoPE) is also a spin on the same numbers — spin everything and you scramble order.</div><div class="fix"><b>fix</b>Rotate only p-RoPE's un-rotated ¾ subspace. Open: learn which dims are positional vs cleanable?</div></div></div>
+      <div class="bottle"><span class="bi">B</span><div><div class="bh">1.58-bit is a diet you must be born on</div><div class="plain">You can't shrink a normal model to ternary after the fact — it must be trained ternary from scratch, which is costly.</div><div class="fix"><b>fix</b>Ternary only the outer shell + drafter; inner core higher-bit; thin FP16 correction lane (HGF). Open: how thin can the lane be?</div></div></div>
+      <div class="bottle"><span class="bi">C</span><div><div class="bh">The phone-book problem (VQ lookup)</div><div class="plain">The best compression looks each weight up in a shared codebook; on a phone NPU, millions of random look-ups are slow even though the file is tiny.</div><div class="fix"><b>fix</b>Trellis (QTIP) computes instead of looks up; or tuned scalar (GSQ) that nearly matches VQ on any hardware. Open: which does your target chip like?</div></div></div>
+      <div class="bottle"><span class="bi">D</span><div><div class="bh">Experts are fragile (MoE)</div><div class="plain">Each expert only saw a slice of the data, so it's delicate — round it too hard and it breaks.</div><div class="fix"><b>fix</b>Extra bits on the router + shared expert. Open: do we even want MoE for the edge target, or dense+PLE?</div></div></div>
+      <div class="bottle"><span class="bi">E</span><div><div class="bh">Measuring "delicate" costs as much as fixing it</div><div class="plain">Knowing which weights are sensitive needs the Hessian (curvature), which is expensive.</div><div class="fix"><b>fix</b>KronQ's Kronecker trick makes it cheap; MatFormer may hand us the ordering free. Open: is trained ordering a good Hessian proxy? (Phase 3 tests it.)</div></div></div>
+      <div class="bottle"><span class="bi">F</span><div><div class="bh">"Free" rotation isn't obviously free</div><div class="plain">Folding the cleanup rotation into weights is free for rotations next to a matmul — not automatically for ones inside attention, and PLE injects a vector mid-stream that may break the fold.</div><div class="fix"><b>fix</b>Source-suppress so in-attention rotation is unnecessary; fold only linear-adjacent ones. Open: does PLE force a small online step? Check early.</div></div></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p style="margin:0 0 16px">Full write-up, math, and the single-GPU experiment plan (Phases 0–5): <span class="mono" style="color:var(--signal)">research/edge-quantization-hybrid.md</span>. Nothing here is trained yet — §6 pillars are hypotheses; §1–§5 are sourced to primary papers below.</p>
+    <div class="eyebrow" style="margin-bottom:8px">Primary sources · verified on the Hugging Face papers index</div>
+    <p class="cite">Gemma 4 · 2607.02770 &nbsp;·&nbsp; MatFormer · 2310.07707 &nbsp;·&nbsp; AltUp · 2301.13310 &nbsp;·&nbsp; LAuReL · 2411.07501 &nbsp;·&nbsp; LFM2 · 2511.23404 &nbsp;·&nbsp; Qwen3 · 2505.09388 &nbsp;·&nbsp; Phi-4-mini · 2503.01743 &nbsp;·&nbsp; SmolLM2 · 2502.02737<br>
+    QuaRot · 2404.00456 &nbsp;·&nbsp; SpinQuant · 2405.16406 &nbsp;·&nbsp; QuIP# · 2402.04396 &nbsp;·&nbsp; AQLM · 2401.06118 &nbsp;·&nbsp; VPTQ · 2409.17066 &nbsp;·&nbsp; QTIP · 2406.11235 &nbsp;·&nbsp; GPTVQ · 2402.15319 &nbsp;·&nbsp; GSQ · 2604.18556 &nbsp;·&nbsp; AWQ · 2306.00978 &nbsp;·&nbsp; KronQ · 2607.07964 &nbsp;·&nbsp; SINQ · 2509.22944<br>
+    BitNet b1.58 · 2402.17764 &nbsp;·&nbsp; ParetoQ · 2502.02631 &nbsp;·&nbsp; HGF · 2602.05269 &nbsp;·&nbsp; NVFP4/IF4 · 2603.28765 &nbsp;·&nbsp; QAT scaling · 2505.14302 &nbsp;·&nbsp; Compute-optimal QAT · 2509.22935<br>
+    Massive Activations · 2402.17762 &nbsp;·&nbsp; Super Weight · 2411.07191 &nbsp;·&nbsp; Unified Sinks→W4A4 · 2601.22966 &nbsp;·&nbsp; Emergence Layer · 2605.08504 &nbsp;·&nbsp; Gradient Sinks · 2603.17771 &nbsp;·&nbsp; Quantizable Transformers · 2306.12929 &nbsp;·&nbsp; S2D · 2602.14432 &nbsp;·&nbsp; MambaQuant · 2501.13484</p>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var cv=document.getElementById('c'), ctx=cv.getContext('2d');
+  var rval=document.getElementById('rval'), mval=document.getElementById('mval');
+  var tg=document.getElementById('tg');
+  var N=46, raw=[], rot=[], seedbase=0;
+  // deterministic pseudo-random (no Math.random needed for reproducibility)
+  function rnd(i){var x=Math.sin((i+1)*12.9898+seedbase)*43758.5453;return x-Math.floor(x);}
+  // raw: small values with a few big outlier spikes; rot: energy spread, all moderate
+  function build(){
+    raw=[];rot=[];var energy=0;
+    for(var i=0;i<N;i++){var v=0.10+0.16*rnd(i);raw.push(v);energy+=v*v;}
+    // inject outliers
+    [7,23,38].forEach(function(k,j){var s=[1.0,0.72,0.85][j];energy+=s*s-raw[k]*raw[k];raw[k]=s;});
+    var flat=Math.sqrt(energy/N); // conserve total energy when spreading
+    for(var i2=0;i2<N;i2++){rot.push(flat*(0.86+0.28*rnd(i2+100)));}
+  }
+  build();
+  var reduce=window.matchMedia('(prefers-color-scheme: reduce)').matches ||
+             window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var target=0, cur=0; // 0 = raw, 1 = incoherence-native
+  tg.addEventListener('click',function(){target=target?0:1;tg.setAttribute('aria-pressed',target?'true':'false');});
+
+  function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+  function resize(){var r=cv.getBoundingClientRect();cv.width=r.width*devicePixelRatio;cv.height=300*devicePixelRatio;ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);}
+  window.addEventListener('resize',resize);resize();
+
+  function draw(){
+    cur += (target-cur)*0.06;
+    if(!reduce && Math.abs(target-cur)<0.001 && Math.abs(target-cur)>=0){ /* settle */ }
+    var W=cv.width/devicePixelRatio, H=300, pad=26, gap=3;
+    ctx.clearRect(0,0,W,H);
+    var sig=css('--signal'), crit=css('--crit'), deep=css('--signal-deep'), faint=css('--ink-faint');
+    var bw=(W-2*pad)/N - gap;
+    var baseY=H-38, maxBarH=baseY-30;
+    // grid ceiling = b-bit levels; scale so raw outliers exceed it
+    var levels=8, ceiling=0.62; // grid spans up to 'ceiling' of full scale
+    var scaleFull=1.05;
+    // draw quant grid lines
+    ctx.strokeStyle=css('--grid'); ctx.lineWidth=1;
+    for(var L=0;L<=levels;L++){
+      var gy=baseY - (ceiling/scaleFull)*maxBarH*(L/levels);
+      ctx.beginPath();ctx.moveTo(pad,gy);ctx.lineTo(W-pad,gy);ctx.stroke();
+    }
+    // ceiling marker
+    var cy=baseY-(ceiling/scaleFull)*maxBarH;
+    ctx.strokeStyle=deep;ctx.setLineDash([4,4]);ctx.lineWidth=1.2;
+    ctx.beginPath();ctx.moveTo(pad,cy);ctx.lineTo(W-pad,cy);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle=faint;ctx.font='11px ui-monospace,monospace';
+    ctx.fillText('grid ceiling · '+levels+' levels',pad+4,cy-6);
+
+    var maxv=0,mse=0;
+    for(var i=0;i<N;i++){
+      var v=raw[i]+(rot[i]-raw[i])*cur;
+      if(v>maxv)maxv=v;
+      var h=(v/scaleFull)*maxBarH;
+      var x=pad+i*(bw+gap), y=baseY-h;
+      var over=v>ceiling;
+      // quantization error proxy: distance to nearest grid level within ceiling
+      var q=Math.min(v,ceiling); var lvl=Math.round((q/ceiling)*levels)/levels*ceiling;
+      var err=(v-lvl); mse+=err*err;
+      ctx.fillStyle= over ? crit : sig;
+      ctx.globalAlpha= over ? 0.92 : 0.82;
+      roundRect(ctx,x,y,bw,h,2);ctx.fill();
+      if(over){ // clipped cap
+        ctx.fillStyle=crit;ctx.globalAlpha=1;
+        ctx.fillRect(x,y-3,bw,3);
+      }
+    }
+    ctx.globalAlpha=1;
+    // R bracket
+    var Rh=(maxv/scaleFull)*maxBarH;
+    ctx.strokeStyle=css('--warn');ctx.lineWidth=1.4;
+    var rx=W-pad+2;
+    // baseline
+    ctx.fillStyle=faint;ctx.font='11px ui-monospace,monospace';
+    ctx.fillText('coordinate index →',pad,baseY+22);
+
+    rval.textContent=maxv.toFixed(2);
+    mval.textContent=(mse/N*1000).toFixed(1)+'e-3';
+
+    requestAnimationFrame(draw);
+  }
+  function roundRect(c,x,y,w,h,r){if(w<0)w=0;r=Math.min(r,w/2,h/2);c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
+  if(reduce){target=1;cur=1;}
+  draw();
+})();
+</script>
