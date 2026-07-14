@@ -275,7 +275,7 @@ Legend: ✅ synergistic · ➖ neutral/orthogonal · ⚠️ conflict (needs care
 
 The four 🔗 couplings are the paper‑worthy, under‑exploited crossover points:
 1. **p‑RoPE ⊕ rotation** — partial RoPE hands rotation a clean subspace to work in.
-2. **AltUp ⊕ everything low‑bit** — width buys incoherence, incoherence buys bits.
+2. **AltUp ⊕ low‑bit** — width buys incoherence *and* an averaging bonus. ⚠️ **Corrected by the mock run (§6.5):** width's incoherence gain is *redundant* with rotation (both are "spread energy across the basis," so once one has run, the other adds ~0 dB on the outlier axis). Width's *unique*, non‑redundant contribution is (a) **redundancy‑averaging** of the residual clean quant error (~0.4 bit / 2× width, which rotation cannot give) and (b) **capacity** (the original AltUp point). So the honest rule is: use **one** spreader for outliers (rotation is far cheaper than 16× width for that job), and spend width on averaging + capacity — *not* as a second outlier fix. This is complementarity across error *types*, not a compounding stack on the outlier axis.
 3. **MatFormer ⊕ mixed‑precision** — trained importance ordering *is* the bit‑allocation prior.
 4. **QK‑Norm/gated attention ⊕ rotation** — kill the sink at the source, so the rotation is smaller/foldable and the online‑Hadamard latency largely disappears.
 
@@ -346,6 +346,21 @@ Full write‑up in `research/experiments/RESULTS.md`; harness in `mock_run.py` (
 These are mechanism tests on synthetic data, not end‑to‑end LLM validation; the QAT‑dependent parts
 of P1/P4 still need Phase 1 on a real ≤1.5 B model. But the load‑bearing math survived contact with
 numbers — and where it didn't (the two items above), the theory was corrected rather than the test.
+
+**E6 — the P1 × P4 compound test (`sweep_width_bits.py`, `sweep.png`).** The decisive follow‑up:
+do rotation (P1) and width (P4) *compound* against the 4‑bit activation floor, or overlap? Answer:
+**partial — complementary across error *types*, redundant within the outlier type.**
+- **Outlier axis → redundant.** Both rotation and width are "spread energy across the basis," so
+  both crush activation kurtosis (raw 58.7 → rotation 1.6, → width ~5). At W?A4, rotation alone buys
+  +5.3 dB, width alone +9.3 dB, and **both together +9.4 dB — rotation adds only +0.1 dB on top of
+  width.** Once one spreader has run, the other has almost nothing left to do on outliers.
+- **Averaging axis → width is unique.** On a clean (outlier‑free) signal where rotation does nothing,
+  width still buys **~+2.3 dB per 2× (~0.4 bit/2×)** from redundancy‑averaging of the residual error.
+- **Design rule (now in §4.3 coupling 2):** use **one** spreader for outliers — rotation is far
+  cheaper than 16× width — and spend width on averaging + capacity, not as a second outlier fix.
+  This *corrects* the earlier framing of AltUp⊕rotation as a clean synergy: it is largely redundant
+  on the axis it was claimed to help, and synergistic only on the axes (averaging, capacity) that
+  rotation never touched.
 
 ---
 

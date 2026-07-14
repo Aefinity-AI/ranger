@@ -56,6 +56,28 @@ channels — hurting at ultra-low bits. This is not a bug; it's the truth, and i
 - The outlier model (gain, count, sink strength) is hand-set; real distributions vary by family.
 - E5's parallel sparse path uses two activation quantizations for clarity; a real kernel fuses them.
 
+## E6 — the P1 × P4 compound test (`sweep_width_bits.py`, `sweep.png`)
+
+**Question:** do rotation (Pillar 1) and width (Pillar 4) *compound* against the 4-bit activation
+floor, or overlap? This needed two redesigns — v1 used a dense random embedding that *pre-Gaussianized*
+the outliers (so there was no floor for rotation to break; confounded result), and v1 also inherited
+E2's ill-conditioned K=1 square-inverse artifact. v2 uses orthonormal embeddings, a true raw-outlier
+baseline, kurtosis tracking, and continuous-dB measurement.
+
+**Answer: PARTIAL — complementary across error *types*, redundant within the outlier type.**
+
+- **Outlier axis → redundant.** Rotation and width are both "spread energy across the basis," so both
+  crush activation kurtosis: raw 58.7 → rotation 1.6 (38×) → width ~5 (11×). At a W?A4 budget, rotation
+  alone buys **+5.3 dB**, width alone **+9.3 dB**, and **both together +9.4 dB — rotation adds only
+  +0.1 dB on top of width.** Once one spreader has run, the other is nearly a no-op on outliers.
+- **Averaging axis → width is unique.** On a clean (outlier-free) signal, where rotation does nothing,
+  width still buys **+2.3 dB per 2× (~0.4 bit/2×)** from redundancy-averaging of the residual error.
+- **This corrects the theory.** The compatibility matrix had marked *AltUp ⊕ rotation* as a clean
+  synergy (🔗 "width→incoherence"). It is actually **largely redundant on that axis**. Width's genuine,
+  non-overlapping value is averaging + capacity — not a second outlier fix.
+- **Design rule that falls out:** use **one** spreader for outliers (rotation ≪ 16× width in cost),
+  and spend width on averaging + capacity. Folded into report §4.3 (coupling 2) and §6.5.
+
 ## Net effect on the theory
 Three of four pillars have their core mechanism confirmed on synthetic data (P1 at 4-bit, P2
 including a noisy trained-ordering proxy, P4 with the coefficient in range); the fourth (VQ shaping,
