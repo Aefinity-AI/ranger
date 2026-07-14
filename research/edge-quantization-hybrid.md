@@ -286,6 +286,7 @@ The four 🔗 couplings are the paper‑worthy, under‑exploited crossover poin
 - **D. MoE experts quantize worse.** Fewer tokens/expert → higher curvature variance + router fragility. Keep router + shared expert at higher bits.
 - **E. SSM has its own outliers.** The parallel scan/gate projections need variance‑aligned rotation (MambaQuant) before low‑bit.
 - **F. Online‑Hadamard latency.** Rotations that can't fold cost 5–10 % decode. RANGER pillar 1 is precisely the attempt to make them foldable/free.
+- **G. Rotation ⟂ sparse‑outlier protection (found empirically — see §6.5).** A Hadamard rotation *delocalizes* the super‑weights: after rotating, the concentrated outliers are smeared across the whole matrix, so there is nothing sparse left to keep in FP16. **Pillars 1 (rotation) and 2/3 (sparse/nested precision) must therefore live on orthogonal axes** — split the super‑weights off *before* rotating, rotate the outlier‑free dense bulk, and carry the sparse tail on a parallel FP path over unrotated activations. Ignoring this makes the two mechanisms *fight* (the combined stack lost to plain AWQ until the ordering was fixed).
 
 ---
 
@@ -316,6 +317,35 @@ The four 🔗 couplings are the paper‑worthy, under‑exploited crossover poin
 - **Prediction P4:** an **AltUp‑K× widened** model quantizes to **~½·log₂K fewer bits** at equal quality vs a same‑active‑param baseline — *and* the activation kurtosis drops measurably with `K`. This is the single cleanest test of the whole thesis: **width and bits are on one frontier.** *Falsified if* widening doesn't lower kurtosis or doesn't buy bits.
 
 **The composite legendary target:** a ~1 B‑active model that, at **≈2.5–3 effective bits and no online rotation**, holds within **2–3 %** of its own FP16 quality *and* within a chosen margin of a much larger reference — i.e., pushing the whole (size × precision) product down the frontier while staying on the quality ceiling.
+
+### 6.5 Mock‑run results — mechanisms tested on synthetic tensors (`research/experiments/`)
+
+Before touching a GPU, each pillar's *mechanism* was tested on synthetic tensors engineered to
+reproduce the documented pathologies (massive‑activation channels, sink tokens, super‑weights).
+Full write‑up in `research/experiments/RESULTS.md`; harness in `mock_run.py` (pure numpy, seed
+`20260714`). Headlines:
+
+- **Pillar 4 validated — the riskiest claim held.** A correct linear redundant‑embedding test
+  (exact fp reconstruction) measured **−0.60 bits saved per 2× width**, vs the predicted −0.50.
+  Width and bits are on one frontier.
+- **Pillar 2 validated, including the trained‑ordering proxy.** Importance‑ordered precision beat
+  uniform 2.3× at equal average bits; a *noisy* MatFormer‑style ordering (correlation 0.89 with
+  the true Hessian) still beat uniform 1.8× — supporting "trained ordering ≈ free Hessian."
+- **Pillar 1 confirmed but scope‑corrected.** Hadamard rotation cut activation incoherence 8.4×
+  and kurtosis 156× and won at **W4A4 (1.23×)** — but a sub‑hypothesis ("edge grows as bits drop")
+  was **falsified**: at W3A3/W2A2 plain per‑token quant matched or beat it, because signal‑bearing
+  outlier channels are accidentally preserved by per‑token scaling. **Rotation is a 4‑bit‑activation
+  enabler; sub‑4‑bit activations are a QAT problem** (consistent with ParetoQ). Scope narrowed
+  accordingly.
+- **New constraint G discovered** (see §4.4): rotation and sparse super‑weight protection are
+  basis‑incompatible; split super‑weights *before* rotating. With that fix the combined RANGER stack
+  wins at W2A4 (0.927 vs AWQ 0.941 vs QuaRot 0.995).
+- **VQ shaping gain confirmed** (+9–10 dB over scalar at equal bits/dim), supporting Pillar 3's
+  FFN→VQ format choice.
+
+These are mechanism tests on synthetic data, not end‑to‑end LLM validation; the QAT‑dependent parts
+of P1/P4 still need Phase 1 on a real ≤1.5 B model. But the load‑bearing math survived contact with
+numbers — and where it didn't (the two items above), the theory was corrected rather than the test.
 
 ---
 
