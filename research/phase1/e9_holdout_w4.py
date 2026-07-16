@@ -40,6 +40,8 @@ CLIP_GRID = [1.0, 0.9, 0.8, 0.7, 0.6, 0.5]
 
 
 def restore_(linears, originals):
+    if originals is None:  # --no-copy single-arm mode: weights are pristine
+        return
     for n, m in linears:
         m.weight.copy_(originals[n])
 
@@ -89,8 +91,21 @@ def main():
     ap.add_argument("--group", type=int, default=128)
     ap.add_argument("--e8-json", default="")
     ap.add_argument("--arms", default="1,2,3,4,5,6")
+    ap.add_argument("--holdout-ks", default="64,512")
+    ap.add_argument("--no-copy", action="store_true",
+                    help="skip the originals copy (large models). At most "
+                         "ONE weight-mutating arm per invocation; use the "
+                         "resume-safe JSON across invocations.")
     args = ap.parse_args()
     arms = set(args.arms.split(","))
+    holdout_ks = [int(k) for k in args.holdout_ks.split(",") if k]
+
+    if args.no_copy:
+        n_mutating = (sum(a in arms for a in ("1", "2", "3", "5"))
+                      + ("4" in arms) * len(holdout_ks))
+        if n_mutating > 1 or "6" in arms:
+            raise SystemExit("--no-copy allows at most one weight-mutating "
+                             "arm per invocation (and not arm 6)")
 
     tok = AutoTokenizer.from_pretrained(args.model)
     model = AutoModelForCausalLM.from_pretrained(args.model,
@@ -98,7 +113,8 @@ def main():
     model.eval()
     ids = get_eval_ids(tok, args.tokens)
     linears = target_linears(model)
-    originals = {n: m.weight.clone() for n, m in linears}
+    originals = (None if args.no_copy
+                 else {n: m.weight.clone() for n, m in linears})
 
     tag = args.model.split("/")[-1].replace(".", "_")
     out_path = f"e9_holdout_w4_{tag}.json"
@@ -139,7 +155,7 @@ def main():
         record(f"w4_g{args.group}_clip", perplexity(model, ids), st)
 
     if "4" in arms:
-        for k in (64, 512):
+        for k in holdout_ks:
             if f"w4_g{args.group}_holdout_top{k}" in done:
                 continue
             print(f"arm 4: g={args.group} + hold-out top-{k} ...", flush=True)

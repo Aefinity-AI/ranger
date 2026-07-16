@@ -34,6 +34,8 @@ from common import get_eval_ids, checkpoint_json
 
 torch.set_grad_enabled(False)
 
+# SmolLM2-135M weight-census recurring residual channels (default);
+# override with --census-channels for other models
 CENSUS_TOP10 = [100, 507, 446, 371, 247, 260, 17, 8, 261, 162]
 
 
@@ -181,7 +183,7 @@ def superweight_rounds(model, tok, max_rounds=20, spike_floor=30.0):
     return zeroed, terminated
 
 
-def overlap_analysis(per_layer, dim=576):
+def overlap_analysis(per_layer, census_top10):
     """Model-wide residual ranking vs the weight-census top-10."""
     agg = {}
     for rec in per_layer:
@@ -194,9 +196,9 @@ def overlap_analysis(per_layer, dim=576):
     act_set = {c for c, _ in ranked[:10]}
     return {
         "activation_top10": top10,
-        "census_top10": CENSUS_TOP10,
-        "overlap": sorted(act_set & set(CENSUS_TOP10)),
-        "overlap_count": len(act_set & set(CENSUS_TOP10)),
+        "census_top10": census_top10,
+        "overlap": sorted(act_set & set(census_top10)),
+        "overlap_count": len(act_set & set(census_top10)),
     }
 
 
@@ -204,7 +206,16 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default="HuggingFaceTB/SmolLM2-135M")
     ap.add_argument("--tokens", type=int, default=4096)
+    ap.add_argument("--census-channels", default="",
+                    help="comma list of weight-census residual channels for "
+                         "the overlap analysis (default: SmolLM2-135M's)")
     args = ap.parse_args()
+    census_top10 = ([int(c) for c in args.census_channels.split(",") if c]
+                    or CENSUS_TOP10)
+    if (census_top10 is CENSUS_TOP10
+            and "SmolLM2-135M" not in args.model):
+        print("WARNING: overlap analysis uses SmolLM2-135M census channels; "
+              "pass --census-channels for this model", flush=True)
 
     tok = AutoTokenizer.from_pretrained(args.model)
     model = AutoModelForCausalLM.from_pretrained(args.model,
@@ -218,7 +229,7 @@ def main():
     per_layer = run_census(model, ids)
     results = {"model": args.model, "tokens": int(len(ids)),
                "per_layer": per_layer,
-               "overlap": overlap_analysis(per_layer)}
+               "overlap": overlap_analysis(per_layer, census_top10)}
     checkpoint_json(out_path, results)
     print(json.dumps(results["overlap"], indent=1), flush=True)
 

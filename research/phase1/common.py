@@ -198,23 +198,23 @@ def checkpoint_json(path, obj):
 def global_topk_indices(linears, k):
     """Exactly-K global |w| selection, returned as {tensor_name: flat_idx
     LongTensor}. Selection by INDEX, not threshold (bf16 tie bug fix).
-    Concatenation stays in the weights' own dtype (bf16: ~212 MB)."""
-    mags = torch.cat([m.weight.abs().ravel() for _, m in linears])
-    top = torch.topk(mags, k).indices
-    del mags
-    out, offset = {}, 0
-    sizes = [(n, m.weight.numel()) for n, m in linears]
-    per = {n: [] for n, _ in sizes}
-    bounds = []
-    for n, sz in sizes:
-        bounds.append((n, offset, offset + sz))
-        offset += sz
-    for idx in top.tolist():
-        for n, lo, hi in bounds:
-            if lo <= idx < hi:
-                per[n].append(idx - lo)
-                break
-    for n in list(per):
-        if per[n]:
-            out[n] = torch.tensor(sorted(per[n]), dtype=torch.long)
-    return out
+    Memory-safe: per-tensor top-k candidates first (the global top-k is
+    always among them), never a full concatenation — a 440M-param model
+    would need an ~880 MB cat otherwise."""
+    cand_vals, cand_idx, cand_names = [], [], []
+    for n, m in linears:
+        w = m.weight.abs().ravel()
+        kk = min(k, w.numel())
+        v, i = torch.topk(w.float(), kk)
+        cand_vals.append(v)
+        cand_idx.append(i)
+        cand_names.extend([n] * kk)
+        del w
+    vals = torch.cat(cand_vals)
+    idx = torch.cat(cand_idx)
+    top = torch.topk(vals, k).indices
+    per = {}
+    for t in top.tolist():
+        per.setdefault(cand_names[t], []).append(int(idx[t]))
+    return {n: torch.tensor(sorted(v), dtype=torch.long)
+            for n, v in per.items()}

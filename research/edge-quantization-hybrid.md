@@ -181,8 +181,8 @@ Two dials, and only two: **`R` (set by outliers)** and **`b` (bits)**. Error fal
 - **RANGER use:** the *cheap* Kronecker‑factored Hessian is exactly the sensitivity signal pillar 3 needs to set per‑role bits — but MatFormer (pillar 2) gives a *trained* ordering that may make the Hessian estimate unnecessary for the coarse split. Testable which wins.
 
 ### 3.8 Activation‑aware scaling — AWQ, SmoothQuant
-- **Mechanism:** migrate difficulty from (hard‑to‑quantize) activations to (easy) weights via a per‑channel scale `s`: `y = (x/s)(sW)`; choose `s` to protect the salient channels AWQ finds via activation magnitude.
-- **Math:** `s_j = (max_i|x_{ij}|)^α / (max_i|W_{ij}|)^{1−α}` — balance the ranges.
+- **Mechanism:** migrate difficulty from (hard‑to‑quantize) activations to (easy) weights via a per‑channel scale `s`: `y = (x/s)(sW)`; choose `s` to protect the salient channels found via activation magnitude.
+- **Math (attribution corrected 2026‑07‑16):** `s_j = (max_i|x_{ij}|)^α / (max_i|W_{ij}|)^{1−α}` is **SmoothQuant's** difficulty‑migration formula (its Eq. 4). **AWQ** instead grid‑searches `s = s_x^α` (per‑channel activation magnitude to a searched power α, no weight term) minimizing block output error. Both balance ranges; the formulas are distinct.
 - **Win:** cheap, calibration‑light, ubiquitous; the baseline weight‑only 4‑bit method.
 - **Relation:** a *diagonal* (per‑channel) special case of the rotation idea — scaling is a diagonal transform; rotation is the full orthogonal generalization. RANGER's folded rotation subsumes it.
 
