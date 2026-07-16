@@ -121,6 +121,38 @@ def main():
     print(f"   rel diff vs unrotated: {err:.2e}")
     assert err < 1e-4
 
+    # --- regression tests for the three review findings -----------------
+    print("9. [regression] ternary gradients reach weights OUTSIDE clamp range")
+    lin = nn.Linear(64, 32, bias=False)
+    lin.weight.data[0, :8] = 5.0                         # |W| >> s = mean|W|
+    fq = FakeQuantLinear(lin, ternary=True)
+    fq(torch.randn(4, 64)).sum().backward()
+    g_out = fq.weight.grad[0, :8]
+    assert float(g_out.abs().sum()) > 0, "clamped-out ternary weights got no gradient"
+    print(f"   grad on |W|>>s entries: {float(g_out.abs().mean()):.4f}  OK")
+
+    print("10. [regression] binary (1-bit) + super-weight split stays exact")
+    W = torch.randn(64, 64); W[2, 3] = 50.0; W[10, 20] = -45.0
+    lin = nn.Linear(64, 64, bias=False); lin.weight.data = W.clone()
+    mask = _superweight_mask(W, 0.001)
+    fq = FakeQuantLinear(lin, bits=1, sw_mask=mask)
+    Weff = fq.effective_weight()
+    assert torch.equal(Weff[mask], W[mask]), "binary path double-counted super-weights"
+    print(f"   sparse entries exact under 1-bit dense quant  OK")
+
+    print("11. [regression] rotation quantizes in the ROTATED basis (and helps)")
+    torch.manual_seed(3)
+    W = torch.randn(96, 128) / 11.3
+    W[:, [5, 40, 77]] *= 30.0                            # outlier in-columns
+    x = torch.randn(64, 128)
+    lin = nn.Linear(128, 96, bias=False); lin.weight.data = W.clone()
+    y_ref = F.linear(x, W)
+    e_plain = float((y_ref - FakeQuantLinear(lin, bits=4)(x)).norm() / y_ref.norm())
+    e_rot = float((y_ref - FakeQuantLinear(lin, bits=4, rotate=True)(x)).norm() / y_ref.norm())
+    print(f"   W4 err  plain {e_plain:.4f}  rotated {e_rot:.4f}  "
+          f"({e_plain/e_rot:.2f}x better)")
+    assert e_rot < e_plain, "rotated-basis quantization must beat original basis here"
+
     print("\nSELFTEST OK — every Phase-2 mechanism behaves. On a GPU, run:")
     print("  python train_qat.py --model HuggingFaceTB/SmolLM2-135M --bits 2 \\")
     print("      --superweight-pct 0.005 --nested --protect-downproj --kurt-lambda 0.05")

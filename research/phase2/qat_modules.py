@@ -41,18 +41,28 @@ def ste_round(x):
 def _fake_quant(W, bits, ternary=False):
     """Symmetric per-out-channel fake quant with STE. W: [out, in].
 
-    bits==1 is true binary (sign * mean|W|, BitNet-style) — the symmetric int
-    formula degenerates there (qmax would be 0), so it gets its own path.
+    Ternary (BitNet b1.58) uses a FULL-identity STE: with s = mean|W|, roughly
+    half the weights sit outside clamp range, and a clamp-respecting gradient
+    would freeze them permanently (review finding). BitNet's recipe passes the
+    gradient through the whole quantizer.
+
+    bits==1 is binary {-s, 0, +s} with sign(0)=0 — zero-preserving so that
+    entries zeroed by the super-weight split quantize to 0 and the sparse fp
+    path can add the true value back without double-counting (review finding).
     """
     if ternary:
         s = W.abs().mean(dim=1, keepdim=True).detach().clamp_min(1e-8)  # BitNet b1.58
-        return torch.clamp(ste_round(W / s), -1, 1) * s
-    if int(bits) <= 1:                                   # binary: {-s, +s}
+        q = torch.clamp((W / s).round(), -1, 1) * s
+        # full-identity STE, bit-exact values: value == q, dvalue/dW == 1
+        return q.detach() + (W - W.detach())
+    if int(bits) <= 1:                                   # binary: {-s, 0, +s}
         s = W.abs().mean(dim=1, keepdim=True).detach().clamp_min(1e-8)
-        sign = torch.where(W >= 0, 1.0, -1.0)
-        return W + (sign * s - W).detach()               # STE
+        q = torch.sign(W) * s                            # sign(0)=0, zero-preserving
+        return q.detach() + (W - W.detach())             # full-identity STE
     qmax = 2 ** (int(bits) - 1) - 1
     s = (W.abs().amax(dim=1, keepdim=True).detach().clamp_min(1e-8)) / qmax
+    # dynamic amax scale => nothing lands outside [-qmax, qmax]; clamp is a
+    # numerical guard only, so the round-only STE is safe here
     return torch.clamp(ste_round(W / s), -qmax - 1, qmax) * s
 
 
@@ -86,29 +96,41 @@ class FakeQuantLinear(nn.Module):
             self.register_buffer("_hi", hi_mask.view(-1, 1))
             self.hi_mask = True
 
+    def _quant_dense(self, W_dense):
+        """Fake-quant the outlier-free dense part (nested split if enabled)."""
+        if self.hi_mask is not None and not self.ternary:
+            Wq_hi = _fake_quant(W_dense, self.bits + 1)
+            Wq_lo = _fake_quant(W_dense, max(self.bits - 1, 1))
+            return torch.where(self._hi, Wq_hi, Wq_lo)
+        return _fake_quant(W_dense, self.bits, ternary=self.ternary)
+
     def effective_weight(self):
+        """Quantized weight in the ORIGINAL basis (non-rotated path)."""
         W = self.weight
         # constraint G: zero the super-weights out of the dense part so they
         # can neither be quantized nor inflate the scale
         W_dense = W.masked_fill(self.sw_mask, 0.0)
-        if self.hi_mask is not None and not self.ternary:
-            Wq_hi = _fake_quant(W_dense, self.bits + 1)
-            Wq_lo = _fake_quant(W_dense, max(self.bits - 1, 1))
-            Wq = torch.where(self._hi, Wq_hi, Wq_lo)
-        else:
-            Wq = _fake_quant(W_dense, self.bits, ternary=self.ternary)
-        # sparse full-precision path (still trainable)
-        return Wq + W * self.sw_mask
+        Wq = self._quant_dense(W_dense)
+        # exact fp sparse path regardless of quantizer behavior at 0
+        return torch.where(self.sw_mask, W, Wq)
 
     def forward(self, x):
-        Weff = self.effective_weight()
-        if self.rotate:
-            n = self.in_features
-            m = next_pow2(n)
-            xr = hadamard(F.pad(x, (0, m - n)) if m != n else x)
-            Wr = hadamard(F.pad(Weff, (0, m - n)) if m != n else Weff)
-            return F.linear(xr, Wr, self.bias)   # exact: xH·(WH)^T = x·W^T
-        return F.linear(x, Weff, self.bias)
+        if not self.rotate:
+            return F.linear(x, self.effective_weight(), self.bias)
+        # Rotated path: quantize IN the rotated (incoherent) basis — that is
+        # the entire point of the rotation (review finding: rotating an
+        # already-quantized weight is a mathematical no-op). The sparse
+        # super-weight path stays UNROTATED per constraint G: rotation would
+        # delocalize the very outliers the split isolates.
+        n, m = self.in_features, next_pow2(self.in_features)
+        W_dense = self.weight.masked_fill(self.sw_mask, 0.0)
+        Wr = hadamard(F.pad(W_dense, (0, m - n)) if m != n else W_dense)
+        Wq = self._quant_dense(Wr)                       # quantize rotated
+        xr = hadamard(F.pad(x, (0, m - n)) if m != n else x)
+        y = F.linear(xr, Wq, self.bias)                  # xH·(W H)^T = x·W^T + qnoise
+        if bool(self.sw_mask.any()):
+            y = y + F.linear(x, self.weight * self.sw_mask)   # fp sparse, unrotated
+        return y
 
     def extra_repr(self):
         mode = "ternary" if self.ternary else f"{self.bits}b"
