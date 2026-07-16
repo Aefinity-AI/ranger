@@ -50,7 +50,7 @@ drafter nets positive speedup on memory-bound decode. If acceptance collapses at
 the "risk-free ternary drafter" story dies. **Cost:** small — assisted generation is
 already in transformers; mostly a measurement script.
 
-## D. Super-weight hunt (protect 10 weights, not 0.5%)
+## D. Super-weight hunt (protect 10 weights, not 0.5%) — BUILT: `research/superweights/`
 
 **What:** reproduce 2411.07191 on SmolLM2: trace max-|activation| spikes through
 down_proj to locate the literal handful of super-weights; confirm by ablation
