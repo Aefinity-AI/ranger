@@ -6,7 +6,7 @@ E–H need training or device work.
 
 ---
 
-## A. Cross-family outlier census ★ (tests the theory's spine)
+## A. Cross-family outlier census ★ (tests the theory's spine) — BUILT: `research/census/`
 
 **What:** run `phase1/measure_outliers.py` + the `ptq_eval.py` bit-cliff across ~8 small
 models that differ in exactly the architecture knobs the causal chain (§4.1) says matter:
