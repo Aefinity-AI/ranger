@@ -38,7 +38,7 @@ local sliding-window KV quantized hard, global KV gently).
 equal bits. Nobody has published the local/global KV-precision split — this is unclaimed
 territory. **Cost:** medium implementation, inference only.
 
-## C. Quantized-drafter speculative decoding (risk-free extreme quant, made real)
+## C. Quantized-drafter speculative decoding (risk-free extreme quant, made real) — BUILT: `research/drafter/`
 
 **What:** SmolLM2-135M drafts for SmolLM2-1.7B (same tokenizer) via transformers'
 built-in assisted generation. Quantize the *drafter* progressively 8→4→3→2→ternary;
