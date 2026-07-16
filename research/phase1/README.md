@@ -62,21 +62,17 @@ Swap the model any time:
 
 Outputs: `outliers.json`, `ptq_results.json` (plus console tables).
 
-## What's deliberately NOT here yet (Phase 2 — needs a GPU)
+## Phase 2 — the QAT scaffold (now built: `../phase2/`)
 
-- **Full activation-rotation inference (QuaRot/SpinQuant end-to-end).** The mechanism
-  check in `ptq_eval.py` C is layer-local; the full online-Hadamard forward is a bigger
-  rewrite. Use the maintained implementations:
-  - `pip install git+https://github.com/Dao-AILab/fast-hadamard-transform` (CUDA kernel)
-  - `llm-compressor` (SpinQuant/GPTQ/AWQ production pipelines)
-  - AMD Quark's QuaRot tutorial for a turnkey rotate→quantize flow.
-- **QAT loop** (the only route below ~3 bits, per ParetoQ). Scaffold plan:
-  1. wrap each `nn.Linear` weight in a fake-quant (STE) at the target bits,
-  2. add the incoherence-native pieces (QK-norm is already in these models; add the
-     kurtosis/spectral-decay reg from S2D as an aux loss on the hidden states),
-  3. fine-tune ~100–500 steps on a slice of FineWeb-Edu / SlimPajama,
-  4. re-run `measure_outliers.py` and `ptq_eval.py` to see the outliers shrink and the
-     low-bit PPL recover.
+The QAT loop (the only route below ~3 bits, per ParetoQ) lives in **`research/phase2/`**:
+STE fake-quant fine-tuning with every RANGER mechanism as an ablation flag
+(super-weight split, nested precision, down_proj protection, kurtosis regularizer,
+ternary, R4-style rotation). Reuses this venv — see `../phase2/README.md`.
+
+Still deliberately external (use maintained implementations rather than reimplementing):
+- **Full residual-stream rotation folding (QuaRot Q1 / SpinQuant end-to-end)**:
+  `pip install git+https://github.com/Dao-AILab/fast-hadamard-transform` (CUDA kernel),
+  `llm-compressor` (SpinQuant/GPTQ/AWQ production pipelines), or AMD Quark's QuaRot flow.
 - **AltUp width sweep on a real model** (Pillar 4) — needs a width-elastic checkpoint or
   a from-scratch tiny run; the synthetic result (`../experiments/sweep.png`) stands in for now.
 
