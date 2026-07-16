@@ -1,0 +1,12 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/311 [00:00<?, ?it/s]Loading weights:  12%|█▏        | 36/311 [00:00<00:00, 356.34it/s]Loading weights:  27%|██▋       | 84/311 [00:00<00:00, 418.75it/s]Loading weights:  41%|████      | 126/311 [00:00<00:00, 398.68it/s]Loading weights:  57%|█████▋    | 177/311 [00:00<00:00, 418.70it/s]Loading weights:  70%|███████   | 219/311 [00:00<00:00, 371.51it/s]Loading weights:  83%|████████▎ | 257/311 [00:00<00:00, 264.15it/s]Loading weights:  93%|█████████▎| 290/311 [00:00<00:00, 274.16it/s]Loading weights: 100%|██████████| 311/311 [00:00<00:00, 318.06it/s]
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (299078 > 131072). Running this sequence through the model will result in indexing errors
+arm 0a: fp32 anchor, no hooks ...
+  fp32_nohooks: ppl = 34.232
+arm: passthrough ...
+  passthrough: ppl = 34.232
+arm: a8 ...
+  a8: ppl = 35.080
+arm: a4 ...
+  a4: ppl = 146845.312
+wrote e10_e11_actquant_Qwen3-0_6B.json

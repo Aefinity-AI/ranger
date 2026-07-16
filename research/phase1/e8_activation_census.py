@@ -110,7 +110,9 @@ def run_census(model, ids, ctx=1024):
         chunk = ids[i:i + ctx]
         if len(chunk) < 2:
             break
-        model(chunk.unsqueeze(0))
+        # base transformer only — the census reads hooks, and lm_head
+        # logits (seq x vocab) are a 300-600MB transient on 150k vocabs
+        model.model(chunk.unsqueeze(0), use_cache=False)
     for h in handles:
         h.remove()
 
@@ -156,7 +158,7 @@ def superweight_rounds(model, tok, max_rounds=20, spike_floor=30.0):
 
         hs = [l.mlp.down_proj.register_forward_hook(mk(i))
               for i, l in enumerate(layers)]
-        model(ids)
+        model.model(ids, use_cache=False)
         for h in hs:
             h.remove()
 
@@ -206,6 +208,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default="HuggingFaceTB/SmolLM2-135M")
     ap.add_argument("--tokens", type=int, default=4096)
+    ap.add_argument("--ctx", type=int, default=1024,
+                    help="forward-pass window (smaller = lower RAM spike)")
     ap.add_argument("--census-channels", default="",
                     help="comma list of weight-census residual channels for "
                          "the overlap analysis (default: SmolLM2-135M's)")
@@ -225,8 +229,9 @@ def main():
     out_path = f"e8_activation_census_{tag}.json"
 
     ids = get_eval_ids(tok, args.tokens)
-    print(f"arm 1+2: census over {len(ids)} wikitext tokens ...", flush=True)
-    per_layer = run_census(model, ids)
+    print(f"arm 1+2: census over {len(ids)} wikitext tokens "
+          f"(ctx {args.ctx}) ...", flush=True)
+    per_layer = run_census(model, ids, ctx=args.ctx)
     results = {"model": args.model, "tokens": int(len(ids)),
                "per_layer": per_layer,
                "overlap": overlap_analysis(per_layer, census_top10)}

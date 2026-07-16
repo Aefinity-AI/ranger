@@ -55,10 +55,11 @@ def role_of(name):
 class Harness:
     """Forward-pre hooks on every block linear; per-arm config on modules."""
 
-    def __init__(self, model):
+    def __init__(self, model, no_snapshot=False):
         self.linears = target_linears(model)
-        self.originals = None  # lazy fp32 copy before first weight mutation
-        self.handles = []
+        self.originals = None  # lazy copy before first weight mutation
+        self.no_snapshot = no_snapshot  # large models: one mutating arm,
+        self.handles = []               # run it LAST, never restore
         for n, m in self.linears:
             m._act_bits = 16
             m._rot_q = None
@@ -69,12 +70,18 @@ class Harness:
     def _hook(mod, args):
         x = args[0]
         if mod._rot_q is not None:
-            x = x @ mod._rot_q
+            x = (x.float() @ mod._rot_q).to(x.dtype)  # rotate in fp32
         if mod._act_bits < 16 or mod._exempt is not None:
             x = fake_quant_pertoken(x, mod._act_bits, mod._exempt)
         return (x,) + args[1:]
 
     def snapshot(self):
+        if self.no_snapshot:
+            if getattr(self, "_mutated", False):
+                raise RuntimeError("--no-snapshot: second weight-mutating "
+                                   "arm requested; weights are dirty")
+            self._mutated = True
+            return
         if self.originals is None:
             self.originals = {n: m.weight.clone() for n, m in self.linears}
 
@@ -88,16 +95,18 @@ class Harness:
         """bits_by_role: {role: bits}, default 16. rot: sandwich all block
         linears. exempt_map: {role: LongTensor of channels}."""
         self.restore_weights()
+        if rot:
+            self.snapshot()  # once per configure, BEFORE any mutation
         for n, m in self.linears:
             r = role_of(n)
             m._act_bits = (bits_by_role or {}).get(r, 16)
             m._exempt = (exempt_map or {}).get(r)
             m._rot_q = None
             if rot:
-                self.snapshot()
                 q = qcache[m.weight.shape[1]]
                 m._rot_q = q
-                m.weight.copy_(m.weight @ q)
+                m.weight.copy_(
+                    (m.weight.float() @ q).to(m.weight.dtype))
 
     def quantize_weights_g128(self):
         self.snapshot()
@@ -109,6 +118,20 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default="HuggingFaceTB/SmolLM2-135M")
     ap.add_argument("--tokens", type=int, default=16384)
+    ap.add_argument("--ctx", type=int, default=1024)
+    ap.add_argument("--dtype", default="float32",
+                    choices=["float32", "bfloat16"],
+                    help="bfloat16 for large models (rotated-weight arms "
+                         "then carry bf16 storeback rounding — reported)")
+    ap.add_argument("--census-channels", default="",
+                    help="weight-census exemption channels (default: "
+                         "SmolLM2-135M's CENSUS8)")
+    ap.add_argument("--act-channels", default="",
+                    help="activation-census exemption channels; enables the "
+                         "a4_exempt_act arm")
+    ap.add_argument("--no-snapshot", action="store_true",
+                    help="skip the originals copy (large models); at most "
+                         "one weight-mutating arm, run it last")
     ap.add_argument("--e8-json", default="")
     ap.add_argument("--arms", default=(
         "fp32_nohooks,passthrough,a8,a4,a4_rot,a4_down_only,a4_qkv_only,"
@@ -118,15 +141,19 @@ def main():
     arm_list = args.arms.split(",")
 
     tok = AutoTokenizer.from_pretrained(args.model)
-    model = AutoModelForCausalLM.from_pretrained(args.model,
-                                                 dtype=torch.float32)
+    model = AutoModelForCausalLM.from_pretrained(
+        args.model, dtype=getattr(torch, args.dtype))
     model.eval()
     ids = get_eval_ids(tok, args.tokens)
 
     hidden = model.config.hidden_size
+    census8 = ([int(c) for c in args.census_channels.split(",") if c]
+               or CENSUS8)[:8]
+    act8 = [int(c) for c in args.act_channels.split(",") if c][:8]
     census_arms_requested = any("census" in a or "random" in a
                                 for a in arm_list)
-    if census_arms_requested and hidden != 576:
+    if (census_arms_requested and hidden != 576
+            and not args.census_channels):
         raise SystemExit(
             f"CENSUS8/random exemption channels are SmolLM2-135M-specific "
             f"(hidden 576); this model has hidden {hidden}. Pass "
@@ -144,8 +171,11 @@ def main():
     out_path = f"e10_e11_actquant_{tag}.json"
     results = load_or_init(out_path, {"model": args.model,
                                       "tokens": int(len(ids)),
-                                      "dtype": "fp32"})
-    results["census8"] = CENSUS8
+                                      "dtype": args.dtype})
+    results["ctx"] = args.ctx
+    results["census8"] = census8
+    if act8:
+        results["act8"] = act8
     done = {a["arm"] for a in results["arms"] if "ppl" in a}
     if done:
         print(f"resuming: {sorted(done)} already recorded", flush=True)
@@ -158,9 +188,9 @@ def main():
     # fp32 anchor BEFORE hooks exist
     if "fp32_nohooks" in arm_list and "fp32_nohooks" not in done:
         print("arm 0a: fp32 anchor, no hooks ...", flush=True)
-        record("fp32_nohooks", perplexity(model, ids))
+        record("fp32_nohooks", perplexity(model, ids, ctx=args.ctx))
 
-    h = Harness(model)
+    h = Harness(model, no_snapshot=args.no_snapshot)
     widths = sorted({m.weight.shape[1] for _, m in h.linears})
     qcache = {w: orthogonal_q(w, seed=20260716) for w in widths}
 
@@ -193,12 +223,13 @@ def main():
         results["down_exempt_channels"] = down_exempt.tolist()
 
     gen = torch.Generator().manual_seed(20260716)
-    pool = [c for c in range(hidden) if c not in CENSUS8]
+    pool = [c for c in range(hidden) if c not in census8]
     rand8 = torch.tensor(
         sorted(torch.tensor(pool)[torch.randperm(len(pool), generator=gen)[:8]]
                .tolist()), dtype=torch.long)
     results["random8"] = rand8.tolist()
-    census_t = torch.tensor(sorted(CENSUS8), dtype=torch.long)
+    census_t = torch.tensor(sorted(census8), dtype=torch.long)
+    act_t = torch.tensor(sorted(act8), dtype=torch.long) if act8 else None
 
     ARMS = {
         "passthrough": dict(bits_by_role={r: 16 for r in all4}),
@@ -222,6 +253,10 @@ def main():
         "a4_exempt_random": dict(
             bits_by_role=all4,
             exempt_map={r: rand8 for r in RESIDUAL_INPUT_ROLES}),
+        "a4_exempt_act": dict(
+            bits_by_role=all4,
+            exempt_map=({r: act_t for r in RESIDUAL_INPUT_ROLES}
+                        if act_t is not None else {})),
     }
 
     for name in arm_list:
@@ -231,14 +266,14 @@ def main():
             print("arm: W4 g=128 + A8 ...", flush=True)
             h.configure(bits_by_role=all8)
             h.quantize_weights_g128()
-            record("w4g128_a8", perplexity(model, ids))
+            record("w4g128_a8", perplexity(model, ids, ctx=args.ctx))
             continue
         if name == "w4g128rot_a4rot":
             print("arm: W4 g=128 rotated + A4 rotated ...", flush=True)
             h.configure(bits_by_role=all4, rot=True, qcache=qcache)
             for n, m in h.linears:  # quantize the ROTATED weights
                 rtn_w4_grouped_(m.weight, g=128)
-            record("w4g128rot_a4rot", perplexity(model, ids))
+            record("w4g128rot_a4rot", perplexity(model, ids, ctx=args.ctx))
             continue
         if name not in ARMS:
             print(f"unknown arm {name}, skipping", flush=True)
@@ -246,10 +281,13 @@ def main():
         if name == "a4_exempt_census_down" and down_exempt is None:
             print("a4_exempt_census_down skipped: no --e8-json", flush=True)
             continue
+        if name == "a4_exempt_act" and act_t is None:
+            print("a4_exempt_act skipped: no --act-channels", flush=True)
+            continue
         cfg = ARMS[name]
         print(f"arm: {name} ...", flush=True)
         h.configure(qcache=qcache, **cfg)
-        record(name, perplexity(model, ids))
+        record(name, perplexity(model, ids, ctx=args.ctx))
 
     h.restore_weights()
     print(f"wrote {out_path}")

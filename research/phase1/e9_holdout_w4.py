@@ -92,6 +92,9 @@ def main():
     ap.add_argument("--e8-json", default="")
     ap.add_argument("--arms", default="1,2,3,4,5,6")
     ap.add_argument("--holdout-ks", default="64,512")
+    ap.add_argument("--ctx", type=int, default=1024,
+                    help="ppl window; halve on large-vocab models to cap "
+                         "the logits transient (report with results)")
     ap.add_argument("--no-copy", action="store_true",
                     help="skip the originals copy (large models). At most "
                          "ONE weight-mutating arm per invocation; use the "
@@ -121,6 +124,7 @@ def main():
     results = load_or_init(out_path, {"model": args.model,
                                       "tokens": int(len(ids)),
                                       "group": args.group,
+                                      "ctx": args.ctx,
                                       "clip_grid": CLIP_GRID})
     done = {a["arm"] for a in results["arms"] if "ppl" in a}
     if done:
@@ -137,22 +141,22 @@ def main():
 
     if "bf16" not in done:
         print("bf16 baseline ...", flush=True)
-        record("bf16", perplexity(model, ids))
+        record("bf16", perplexity(model, ids, ctx=args.ctx))
 
     if "1" in arms and "w4_perchannel" not in done:
         print("arm 1: W4 per-channel RTN (E7 anchor) ...", flush=True)
         st = quantize_all(linears, originals)
-        record("w4_perchannel", perplexity(model, ids), st)
+        record("w4_perchannel", perplexity(model, ids, ctx=args.ctx), st)
 
     if "2" in arms and f"w4_g{args.group}" not in done:
         print(f"arm 2: W4 g={args.group} RTN ...", flush=True)
         st = quantize_all(linears, originals, g=args.group)
-        record(f"w4_g{args.group}", perplexity(model, ids), st)
+        record(f"w4_g{args.group}", perplexity(model, ids, ctx=args.ctx), st)
 
     if "3" in arms and f"w4_g{args.group}_clip" not in done:
         print(f"arm 3: g={args.group} + clip grid ...", flush=True)
         st = quantize_all(linears, originals, g=args.group, clip=CLIP_GRID)
-        record(f"w4_g{args.group}_clip", perplexity(model, ids), st)
+        record(f"w4_g{args.group}_clip", perplexity(model, ids, ctx=args.ctx), st)
 
     if "4" in arms:
         for k in holdout_ks:
@@ -166,7 +170,7 @@ def main():
                               holdout=holdout)
             st["k"] = k
             record(f"w4_g{args.group}_holdout_top{k}",
-                   perplexity(model, ids), st)
+                   perplexity(model, ids, ctx=args.ctx), st)
 
     if ("5" in arms and args.e8_json and os.path.exists(args.e8_json)
             and f"w4_g{args.group}_holdout_e8coords_clip" not in done):
@@ -192,7 +196,7 @@ def main():
             st["coords"] = [[e["layer"], e["row"], e["col"]] for e in coords]
             st["e8_coords_cap_truncated"] = cap_truncated
             record(f"w4_g{args.group}_holdout_e8coords_clip",
-                   perplexity(model, ids), st)
+                   perplexity(model, ids, ctx=args.ctx), st)
         else:
             print("arm 5 skipped: E8 found no >=30x super-weight coords",
                   flush=True)
@@ -217,7 +221,7 @@ def main():
             m.weight.view(-1)[idx] = after
         st["n_changed"] = n_changed
         record("w4_perchannel_restore_exact64",
-               perplexity(model, ids), st)
+               perplexity(model, ids, ctx=args.ctx), st)
 
     restore_(linears, originals)
     print(f"wrote {out_path}")

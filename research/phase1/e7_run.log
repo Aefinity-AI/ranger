@@ -1,0 +1,14 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/272 [00:00<?, ?it/s]Loading weights: 100%|██████████| 272/272 [00:00<00:00, 6856.69it/s]
+Generating test split:   0%|          | 0/4358 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 4358/4358 [00:00<00:00, 407190.40 examples/s]
+Generating train split:   0%|          | 0/36718 [00:00<?, ? examples/s]Generating train split: 100%|██████████| 36718/36718 [00:00<00:00, 756361.05 examples/s]
+Generating validation split:   0%|          | 0/3760 [00:00<?, ? examples/s]Generating validation split: 100%|██████████| 3760/3760 [00:00<00:00, 558903.61 examples/s]
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (304986 > 8192). Running this sequence through the model will result in indexing errors
+bf16 baseline ...
+  ppl = 16.150
+  W4 + top-  0 restored (0 entries): ppl = 36.435
+  W4 + top-  1 restored (1 entries): ppl = 36.435
+  W4 + top-  4 restored (4 entries): ppl = 36.443
+  W4 + top- 16 restored (17 entries): ppl = 36.342
+  W4 + top- 64 restored (64 entries): ppl = 36.171
+wrote e7_superweight_SmolLM2-135M.json

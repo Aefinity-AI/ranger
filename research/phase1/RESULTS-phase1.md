@@ -114,11 +114,63 @@ confound (whole model fp32).
 - §3.8: the s_j formula is SmoothQuant's, not AWQ's (AWQ grid-searches
   s = s_x^α); fixed in place.
 
-## E12 — Qwen3-0.6B cross-model replication
+## E12 — Qwen3-0.6B cross-model replication (2026-07-16)
 
-*Pending; results appended when the chain completes
-(`run_e12_qwen.sh`: weight census → channel extraction → activation
-census → bf16 / W4g128 / hold-out-64 / E8-coords arms).*
+Methodology deltas, all recorded in the JSONs: ppl over **8,192** tokens
+at **ctx 512** (large-vocab logits transient forced both; within-model
+deltas only — never compare absolute PPLs across models), weights bf16,
+E9 arms one-per-invocation (`--no-copy`), rotation arm in bf16 with fp32
+rotate-then-cast (storeback rounding noted). Qwen3-0.6B is chat-tuned,
+hence the high absolute wikitext PPL (34.23 bf16).
+
+**What replicates (the robust core):**
+
+| finding | SmolLM2-135M | Qwen3-0.6B |
+|---|---|---|
+| massive activations (max/median) | 332× | **1,390×** (ch 35, 25 layers) |
+| A8 activation quant | ~free (+4%) | ~free (+2.5%) |
+| A4 collapse (vs anchor) | 16.14 → 13,773 | 34.23 → 146,845 |
+| **rotation sandwich recovery** | **92.3%** | **92.5%** |
+| random-channel exemption | ~0% | ~0% |
+| top-\|w\| hold-out vs g=128 | null (Δ0.03) | null (Δ0.03) |
+| SW-coords increment | +0.38 over clip | +0.45 over clip |
+
+The rotation number matching to within 0.2 points across a 4.4×
+model-size gap and two architectures is the strongest Pillar-1 evidence
+this phase produced. The |w|-ranked hold-out null also replicates: the
+global-magnitude selection is simply not how super weights work.
+
+**What does NOT replicate (architecture/scale-dependent):**
+
+- **Census→activation overlap collapses: 6/10 → 2/10.** Qwen's #1
+  weight-census channel (35) IS its #1 activation channel — the model's
+  dominant super weights all write into `down_proj[35, *]` (L2 spike
+  51,458×) — but the rest of the census set misses. The weight census
+  predicts the *top* coordinate, not the channel *set*, on this
+  architecture (Qwen has QK-norm and a 1024-wide residual sampled by
+  only top-8 super-weights/tensor — the census may simply be too shallow
+  there).
+- **Static channel exemption weakens: 59% → 25% → 0%.** With
+  activation-measured channels it still recovers a real, specific 25%
+  (17,973 vs 146,845; random ≈ 0%), but the census-derived set does
+  nothing on Qwen. Qwen's A4 failure is far less channel-concentrated.
+  Rotation's advantage over exemption grows from 1.6× (log terms) to
+  3.7× — QuaRot-style rotation is the only mechanism that traveled.
+- **MSE clipping flips sign: hurts at 135M (+2.0 PPL), helps at 0.6B
+  (−6.2 PPL: 48.06 → 41.82).** The Super Weight paper's clip+protect
+  recipe becomes net-positive at 0.6B (41.37 total), supporting the
+  scale-dependence reading of the 135M null rather than a mechanism
+  failure. The coordinate increment on top of clip is small but
+  consistent at both scales (+0.38 / +0.45).
+
+**E12 verdict on the round's headline:** "a weight census can replace
+online rotation" is dead — but the sharpened, evidence-backed claims
+that survive are (1) rotation is a scale- and architecture-robust ~92%
+A4 fix; (2) activation-outlier channels are causally identifiable and a
+handful of them carry a measurable share of the A4 failure (59% at
+135M, 25% at 0.6B); (3) the weight census finds the single dominant
+super-weight coordinate on both models for free. All three feed
+RANGER's Pillar 1/3 design directly.
 
 ## Reproduction
 
