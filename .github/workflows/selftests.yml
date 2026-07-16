@@ -60,3 +60,6 @@ jobs:
 
       - name: Super-weight hunt selftest (planted ground truth, no network)
         run: python research/superweights/hunt.py --selftest
+
+      - name: KV-cache lab selftest (cache rig equality, no network)
+        run: python research/kvlab/kv_lab.py --selftest
