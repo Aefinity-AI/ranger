@@ -95,6 +95,9 @@ def main():
     ap.add_argument("--ctx", type=int, default=1024,
                     help="ppl window; halve on large-vocab models to cap "
                          "the logits transient (report with results)")
+    ap.add_argument("--offset", type=int, default=0,
+                    help="skip the first N eval tokens — a DISJOINT slice "
+                         "for confirmation runs (own results file)")
     ap.add_argument("--no-copy", action="store_true",
                     help="skip the originals copy (large models). At most "
                          "ONE weight-mutating arm per invocation; use the "
@@ -114,15 +117,17 @@ def main():
     model = AutoModelForCausalLM.from_pretrained(args.model,
                                                  dtype=torch.bfloat16)
     model.eval()
-    ids = get_eval_ids(tok, args.tokens)
+    ids = get_eval_ids(tok, args.offset + args.tokens)[args.offset:]
     linears = target_linears(model)
     originals = (None if args.no_copy
                  else {n: m.weight.clone() for n, m in linears})
 
     tag = args.model.split("/")[-1].replace(".", "_")
-    out_path = f"e9_holdout_w4_{tag}.json"
+    suffix = f"_off{args.offset}" if args.offset else ""
+    out_path = f"e9_holdout_w4_{tag}{suffix}.json"
     results = load_or_init(out_path, {"model": args.model,
                                       "tokens": int(len(ids)),
+                                      "offset": args.offset,
                                       "group": args.group,
                                       "ctx": args.ctx,
                                       "clip_grid": CLIP_GRID})

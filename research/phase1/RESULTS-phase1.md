@@ -172,6 +172,27 @@ handful of them carry a measurable share of the A4 failure (59% at
 super-weight coordinate on both models for free. All three feed
 RANGER's Pillar 1/3 design directly.
 
+## Confirmation pass — disjoint eval slices (2026-07-16)
+
+Per the pre-registered noise rule ("re-run the decisive pair on a second
+disjoint slice before believing any small win"), the two small effects
+were re-measured on fresh data (SmolLM2: tokens 16,384–32,768; Qwen:
+tokens 8,192–16,384; own results files `*_off*.json`):
+
+| claim | original slice | disjoint slice | verdict |
+|---|---|---|---|
+| clip hurts at 135M | +2.02 (24.90→26.92) | +0.62 (26.97→27.59) | **CONFIRMED** (direction) |
+| clip helps at 0.6B | −6.24 (48.06→41.82) | −2.40 (26.46→24.06) | **CONFIRMED** (direction) |
+| SW-coords increment, 135M | +0.38 | **−0.015** | **REFUTED — noise** |
+| SW-coords increment, 0.6B | +0.45 | +0.24 | **CONFIRMED** (direction) |
+
+Corrections this forces on the findings above: finding 6's "rescues 0.38
+of the clip damage" at 135M does not survive fresh data — at 135M the
+super-weight coordinate lever is null even on top of clip. At 0.6B it is
+real but small. The clip sign-flip with scale stands on both slices of
+both models. (Slice-to-slice magnitude variation is large — direction,
+not magnitude, is the replicated quantity.)
+
 ## Reproduction
 
 ```
