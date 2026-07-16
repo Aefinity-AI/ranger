@@ -29,7 +29,8 @@ import torch.nn.functional as F
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "phase1"))
 from common import load, wikitext_ppl, collect_hidden_stats            # noqa: E402
-from qat_modules import convert_to_qat, kurtosis_loss, average_bits    # noqa: E402
+from qat_modules import (convert_to_qat, kurtosis_loss, average_bits,  # noqa: E402
+                         FakeQuantLinear)
 
 
 def get_batches(tok, device, seqlen, batch, steps, synthetic=False, vocab=None):
@@ -94,6 +95,15 @@ def main():
     ap.add_argument("--seqlen", type=int, default=512)
     ap.add_argument("--grad-accum", type=int, default=1)
     ap.add_argument("--windows", type=int, default=20, help="PPL eval windows")
+    # memory controls for scaling past ~360M on a single GPU
+    ap.add_argument("--grad-checkpoint", action="store_true",
+                    help="gradient checkpointing (less activation memory, ~30%% slower)")
+    ap.add_argument("--freeze-nonquant", action="store_true",
+                    help="only train the quantized linears (frees embedding/norm optimizer state)")
+    ap.add_argument("--optim", choices=["adamw", "adamw8bit"], default="adamw",
+                    help="adamw8bit needs bitsandbytes (GPU); ~4x smaller optimizer state")
+    ap.add_argument("--dtype", choices=["fp32", "bf16"], default="fp32",
+                    help="master weight dtype; bf16 halves weight+grad memory (less stable QAT)")
     ap.add_argument("--synthetic", action="store_true", help="no-network smoke test")
     ap.add_argument("--save", default=None, help="dir to save the QAT checkpoint")
     ap.add_argument("--out", default="qat_results.json")
@@ -104,7 +114,8 @@ def main():
         model, tok, device = make_tiny_model()
     else:
         print(f"loading {args.model} ...")
-        model, tok, device = load(args.model, dtype=torch.float32)  # QAT wants fp32 master
+        mdtype = torch.bfloat16 if args.dtype == "bf16" else torch.float32
+        model, tok, device = load(args.model, dtype=mdtype)  # fp32 master is most stable for QAT
     vocab = model.config.vocab_size
     res = {"args": vars(args)}
 
@@ -131,7 +142,32 @@ def main():
 
     # ---- train --------------------------------------------------------------
     model.train()
-    opt = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=0.0)
+    # memory: fp32 masters + grads + AdamW state ≈ 16 B/param (static, unaffected
+    # by grad-accum). Two levers reduce it:
+    if args.grad_checkpoint:                         # trades compute for activation memory
+        model.config.use_cache = False
+        model.gradient_checkpointing_enable(
+            gradient_checkpointing_kwargs={"use_reentrant": False})
+    if args.freeze_nonquant:                          # only train the quantized linears
+        for p in model.parameters():
+            p.requires_grad_(False)
+        for mod in model.modules():
+            if isinstance(mod, FakeQuantLinear):
+                for p in mod.parameters():
+                    p.requires_grad_(True)
+    train_params = [p for p in model.parameters() if p.requires_grad]
+    n_train = sum(p.numel() for p in train_params)
+    print(f"trainable params: {n_train/1e6:.1f}M  |  optimizer: {args.optim}  |  "
+          f"grad-ckpt: {args.grad_checkpoint}")
+    if args.optim == "adamw8bit":                     # ~4x smaller optimizer state (GPU only)
+        try:
+            import bitsandbytes as bnb
+            opt = bnb.optim.AdamW8bit(train_params, lr=args.lr, weight_decay=0.0)
+        except ImportError:
+            print("  bitsandbytes not installed; falling back to fp32 AdamW")
+            opt = torch.optim.AdamW(train_params, lr=args.lr, weight_decay=0.0)
+    else:
+        opt = torch.optim.AdamW(train_params, lr=args.lr, weight_decay=0.0)
     def lr_fn(step):
         if step < args.warmup:
             return step / max(args.warmup, 1)

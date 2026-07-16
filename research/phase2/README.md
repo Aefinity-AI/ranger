@@ -33,9 +33,28 @@ python train_qat.py --model HuggingFaceTB/SmolLM2-135M --ternary --steps 2000
 python train_qat.py --synthetic --steps 30
 ```
 
-Scale up with `--model HuggingFaceTB/SmolLM2-1.7B` / `Qwen/Qwen3-1.7B-Base` on a
-24 GB+ GPU (fp32 masters: budget ~4 bytes/param + AdamW state ≈ 12×params in bytes;
-1.7B wants gradient accumulation and `--batch 1-2 --grad-accum 8`).
+### Memory & scaling (read before running 1.7B)
+
+QAT keeps **fp32 master weights + grads + AdamW state ≈ 16 bytes/param** — a *static*
+cost that **grad-accum does NOT reduce** (grad-accum only shrinks activation memory).
+So Qwen3-1.7B fp32 needs ≈ **27 GB before activations** and will OOM a 24 GB card unless
+you use the levers below. 135M/360M fit comfortably on any GPU (or CPU).
+
+| Model | Naive fp32 (weights+grad+AdamW) | Fits 24 GB? | Recommended flags |
+|---|---|---|---|
+| 135M / 360M | ~2 / ~6 GB | yes | defaults |
+| 1.7B | ~27 GB | **no** | `--freeze-nonquant --grad-checkpoint --optim adamw8bit` |
+| 1.7B (alt) | — | with headroom | `--dtype bf16 --grad-checkpoint` |
+
+Levers (compose them):
+- `--freeze-nonquant` — train only the quantized linears; frees embedding/norm optimizer
+  state (embeddings are a large fraction of a small model).
+- `--optim adamw8bit` — bitsandbytes 8-bit Adam, ~4× smaller optimizer state (GPU only;
+  falls back to fp32 AdamW with a message if bitsandbytes is missing).
+- `--grad-checkpoint` — recomputes activations in backward (~30% slower, big activation saving).
+- `--dtype bf16` — halves weight+grad memory; slightly less stable QAT, so prefer the
+  fp32-master + 8-bit-optim combo first.
+- `--batch 1 --grad-accum 8` — only helps the activation term, but keeps effective batch up.
 
 ## Flags ↔ theory map
 
