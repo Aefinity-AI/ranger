@@ -54,3 +54,9 @@ jobs:
 
       - name: Census harness selftest (pipeline only, no model downloads)
         run: python research/census/census.py --selftest
+
+      - name: Drafter bench selftest (assisted generation + exactness, no network)
+        run: python research/drafter/drafter_bench.py --selftest
+
+      - name: Super-weight hunt selftest (planted ground truth, no network)
+        run: python research/superweights/hunt.py --selftest

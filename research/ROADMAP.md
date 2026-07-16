@@ -38,7 +38,7 @@ local sliding-window KV quantized hard, global KV gently).
 equal bits. Nobody has published the local/global KV-precision split — this is unclaimed
 territory. **Cost:** medium implementation, inference only.
 
-## C. Quantized-drafter speculative decoding (risk-free extreme quant, made real)
+## C. Quantized-drafter speculative decoding (risk-free extreme quant, made real) — BUILT: `research/drafter/`
 
 **What:** SmolLM2-135M drafts for SmolLM2-1.7B (same tokenizer) via transformers'
 built-in assisted generation. Quantize the *drafter* progressively 8→4→3→2→ternary;
@@ -50,7 +50,7 @@ drafter nets positive speedup on memory-bound decode. If acceptance collapses at
 the "risk-free ternary drafter" story dies. **Cost:** small — assisted generation is
 already in transformers; mostly a measurement script.
 
-## D. Super-weight hunt (protect 10 weights, not 0.5%)
+## D. Super-weight hunt (protect 10 weights, not 0.5%) — BUILT: `research/superweights/`
 
 **What:** reproduce 2411.07191 on SmolLM2: trace max-|activation| spikes through
 down_proj to locate the literal handful of super-weights; confirm by ablation
