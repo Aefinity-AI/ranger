@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.pyc
+qat_results.json
+checkpoints/
+*.pt
