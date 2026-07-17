@@ -27,7 +27,7 @@ damage don't correlate across families, the causal chain — the spine of RANGER
 **Cost:** inference only; CPU-viable; an afternoon. **This is the highest evidence-per-FLOP
 experiment on the list.**
 
-## B. KV-cache quantization lab (the untested novel coupling)
+## B. KV-cache quantization lab (the untested novel coupling) — BUILT: `research/kvlab/`
 
 **What:** inference-time KV quant via the transformers cache API / hooks:
 sink-token exemption (first N tokens fp), pre-RoPE vs post-RoPE key quant, per-head vs
