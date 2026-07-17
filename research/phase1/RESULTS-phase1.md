@@ -36,9 +36,15 @@ compute burned). Effects are claimed only above 3× the ~0.05 PPL run noise.
    documented in the literature (residual ch 507 reaches 332× max/median,
    |x| ≈ 19,600) — and they are input-independent (present on a BOS+newline
    prompt), so the residual-side channels are statically exemptable. The
-   SwiGLU intermediate is the opposite: its per-token argmax channel moves
-   constantly (top channel covers 2–12% of tokens), which is precisely why
-   QuaRot must keep its down_proj-input Hadamard online.
+   SwiGLU intermediate is the opposite: in most layers its per-token argmax
+   channel moves constantly (top channel covers median 6.3% of tokens;
+   22/30 layers below 12%), though a concentrated tail exists (layers at
+   27.7%, 52.6%, 55.3%, and one at 98.5% — per-layer values in
+   e8_activation_census_SmolLM2-135M.json dp_in_argmax_top5). A static
+   exemption must hold at EVERY layer to remove the online transform, so
+   the hopping majority still forces it online — which is precisely why
+   QuaRot keeps its down_proj-input Hadamard online. (Wording corrected
+   2026-07-16: an earlier draft said "2–12%," which understated the tail.)
 
 4. **Rotation as a 4-bit-activation enabler replicates end-to-end** (the
    synthetic E1 result, now on a real model): A4 per-token quantization
