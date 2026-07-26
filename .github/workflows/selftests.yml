@@ -1,0 +1,65 @@
+name: selftests
+
+# Runs every network-free selftest in the repo on each PR and push to main,
+# so there's a green/red signal before every merge decision. All of these
+# were designed to run without downloading model weights, so they work in CI.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  selftests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies (CPU torch)
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install transformers
+
+      - name: Synthetic mechanism tests (numpy only)
+        run: python research/experiments/mock_run.py
+
+      - name: E6 width-bits sweep (numpy only)
+        run: python research/experiments/sweep_width_bits.py
+
+      - name: Phase-1 selftest (torch + transformers, no network)
+        run: python research/phase1/selftest.py
+
+      - name: Phase-2 QAT selftest (11 mechanism checks)
+        run: python research/phase2/selftest_phase2.py
+
+      - name: Phase-2 training-loop smoke test (synthetic, all flags)
+        run: >
+          python research/phase2/train_qat.py --synthetic --steps 10 --bits 2
+          --superweight-pct 0.005 --nested --protect-downproj --rotate-downproj
+          --kurt-lambda 0.05 --batch 2 --seqlen 64
+          --out /tmp/qat_smoke.json
+
+      - name: Census harness selftest (pipeline only, no model downloads)
+        run: python research/census/census.py --selftest
+
+      - name: Drafter bench selftest (assisted generation + exactness, no network)
+        run: python research/drafter/drafter_bench.py --selftest
+
+      - name: Super-weight hunt selftest (planted ground truth, no network)
+        run: python research/superweights/hunt.py --selftest
+
+      - name: KV-cache lab selftest (cache rig equality, no network)
+        run: python research/kvlab/kv_lab.py --selftest

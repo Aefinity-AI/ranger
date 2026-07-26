@@ -1,0 +1,14 @@
+# RANGER Phase-1 — core (CPU-safe; runs the 135M model on a laptop)
+torch>=2.2
+transformers>=4.44
+datasets>=2.20
+accelerate>=0.30
+safetensors>=0.4
+numpy>=1.26
+matplotlib>=3.8
+
+# --- optional, GPU only (Phase 2: full activation-rotation + QAT) ---
+# fast-hadamard-transform   # pip install git+https://github.com/Dao-AILab/fast-hadamard-transform
+# llmcompressor             # llm-compressor for production GPTQ/AWQ/SpinQuant pipelines
+# For SmolLM2 you also want sentencepiece for some tokenizers:
+sentencepiece>=0.2
