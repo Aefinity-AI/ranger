@@ -1,0 +1,18 @@
+Loading weights:   0%|          | 0/311 [00:00<?, ?it/s]Loading weights: 100%|██████████| 311/311 [00:00<00:00, 5310.82it/s]
+HTTP Error 504 thrown while requesting HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext.py
+Retrying in 1s [Retry 1/5].
+HTTP Error 504 thrown while requesting HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext.py
+Retrying in 2s [Retry 2/5].
+HTTP Error 504 thrown while requesting HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext.py
+Retrying in 4s [Retry 3/5].
+HTTP Error 504 thrown while requesting HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext.py
+Retrying in 8s [Retry 4/5].
+HTTP Error 504 thrown while requesting HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext.py
+Retrying in 8s [Retry 5/5].
+HTTP Error 504 thrown while requesting HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext.py
+Using the latest cached version of the dataset since Salesforce/wikitext couldn't be found on the Hugging Face Hub
+Found the latest cached dataset configuration 'wikitext-2-raw-v1' at /home/killboxincorporated/.cache/huggingface/datasets/Salesforce___wikitext/wikitext-2-raw-v1/0.0.0/b08601e04326c79dfdd32d625aee71d232d685c3 (last modified on Tue Jul 14 18:07:34 2026).
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (299078 > 131072). Running this sequence through the model will result in indexing errors
+bf16 baseline ...
+  bf16: ppl = 34.232
+wrote e9_holdout_w4_Qwen3-0_6B.json

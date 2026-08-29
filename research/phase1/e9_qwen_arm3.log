@@ -1,0 +1,7 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/311 [00:00<?, ?it/s]Loading weights:  14%|█▎        | 42/311 [00:00<00:00, 407.22it/s]Loading weights:  27%|██▋       | 83/311 [00:00<00:00, 267.78it/s]Loading weights:  41%|████      | 128/311 [00:00<00:00, 327.00it/s]Loading weights:  53%|█████▎    | 164/311 [00:00<00:00, 293.56it/s]Loading weights:  63%|██████▎   | 197/311 [00:00<00:00, 303.54it/s]Loading weights:  83%|████████▎ | 258/311 [00:00<00:00, 391.88it/s]Loading weights: 100%|██████████| 311/311 [00:00<00:00, 398.86it/s]
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (299078 > 131072). Running this sequence through the model will result in indexing errors
+resuming: ['bf16', 'w4_g128', 'w4_g128_holdout_e8coords_clip', 'w4_g128_holdout_top64'] already recorded
+arm 3: g=128 + clip grid ...
+  w4_g128_clip: ppl = 41.815  n_changed=0 shrink=None
+wrote e9_holdout_w4_Qwen3-0_6B.json

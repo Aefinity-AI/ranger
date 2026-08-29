@@ -1,0 +1,10 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/272 [00:00<?, ?it/s]Loading weights:  31%|███       | 84/272 [00:00<00:00, 804.55it/s]Loading weights:  61%|██████    | 165/272 [00:00<00:00, 733.08it/s]Loading weights:  88%|████████▊ | 239/272 [00:00<00:00, 409.22it/s]Loading weights: 100%|██████████| 272/272 [00:00<00:00, 497.96it/s]
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (304986 > 8192). Running this sequence through the model will result in indexing errors
+bf16 baseline ...
+  bf16: ppl = 17.603
+arm 3: g=128 + clip grid ...
+  w4_g128_clip: ppl = 27.586  n_changed=0 shrink=None
+arm 5: g=128 + hold-out 20 E8 super-weight coords + clip ...
+  w4_g128_holdout_e8coords_clip: ppl = 27.601  n_changed=20 shrink=2.3866479221062784
+wrote e9_holdout_w4_SmolLM2-135M_off16384.json

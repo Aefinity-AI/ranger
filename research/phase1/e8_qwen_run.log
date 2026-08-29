@@ -1,0 +1,112 @@
+Loading weights:   0%|          | 0/311 [00:00<?, ?it/s]Loading weights: 100%|██████████| 311/311 [00:00<00:00, 6589.89it/s]
+HTTP Error 504 thrown while requesting HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext.py
+Retrying in 1s [Retry 1/5].
+HTTP Error 504 thrown while requesting HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext.py
+Retrying in 2s [Retry 2/5].
+HTTP Error 504 thrown while requesting HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext.py
+Retrying in 4s [Retry 3/5].
+HTTP Error 504 thrown while requesting HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext.py
+Retrying in 8s [Retry 4/5].
+HTTP Error 504 thrown while requesting HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext.py
+Retrying in 8s [Retry 5/5].
+HTTP Error 504 thrown while requesting HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext.py
+Using the latest cached version of the dataset since Salesforce/wikitext couldn't be found on the Hugging Face Hub
+Found the latest cached dataset configuration 'wikitext-2-raw-v1' at /home/killboxincorporated/.cache/huggingface/datasets/Salesforce___wikitext/wikitext-2-raw-v1/0.0.0/b08601e04326c79dfdd32d625aee71d232d685c3 (last modified on Tue Jul 14 18:07:34 2026).
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (299078 > 131072). Running this sequence through the model will result in indexing errors
+arm 1+2: census over 4096 wikitext tokens (ctx 512) ...
+{
+ "activation_top10": [
+  {
+   "ch": 35,
+   "best_ratio": 1389.7139892578125,
+   "layers": 25
+  },
+  {
+   "ch": 1,
+   "best_ratio": 1004.30517578125,
+   "layers": 25
+  },
+  {
+   "ch": 13,
+   "best_ratio": 882.58935546875,
+   "layers": 19
+  },
+  {
+   "ch": 27,
+   "best_ratio": 777.9163208007812,
+   "layers": 20
+  },
+  {
+   "ch": 5,
+   "best_ratio": 308.29937744140625,
+   "layers": 16
+  },
+  {
+   "ch": 14,
+   "best_ratio": 303.80535888671875,
+   "layers": 17
+  },
+  {
+   "ch": 45,
+   "best_ratio": 293.01025390625,
+   "layers": 14
+  },
+  {
+   "ch": 55,
+   "best_ratio": 242.4456024169922,
+   "layers": 12
+  },
+  {
+   "ch": 62,
+   "best_ratio": 192.84080505371094,
+   "layers": 1
+  },
+  {
+   "ch": 131,
+   "best_ratio": 188.10943603515625,
+   "layers": 1
+  }
+ ],
+ "census_top10": [
+  35,
+  305,
+  271,
+  312,
+  358,
+  22,
+  25,
+  13,
+  2,
+  70
+ ],
+ "overlap": [
+  13,
+  35
+ ],
+ "overlap_count": 2
+}
+arm 3: near-empty prompt ...
+arm 4: iterative super-weight extraction ...
+  terminated: max_rounds_cap
+  round 0: L2 down_proj[35,55] ratio 51457.5 w=0.5820
+  round 1: L2 down_proj[35,128] ratio 35923.2 w=-0.5703
+  round 2: L2 down_proj[35,1489] ratio 23787.0 w=-0.5742
+  round 3: L27 down_proj[35,2326] ratio 26896.3 w=0.5000
+  round 4: L27 down_proj[35,107] ratio 15436.9 w=-0.4805
+  round 5: L2 down_proj[35,321] ratio 11772.1 w=-0.5781
+  round 6: L2 down_proj[35,46] ratio 6553.6 w=-0.5820
+  round 7: L2 down_proj[13,55] ratio 5066.9 w=0.0562
+  round 8: L2 down_proj[13,128] ratio 3580.2 w=-0.0571
+  round 9: L27 down_proj[35,2116] ratio 3326.2 w=-0.4023
+  round 10: L2 down_proj[35,646] ratio 3049.2 w=-0.5742
+  round 11: L2 down_proj[1,55] ratio 2867.2 w=0.0327
+  round 12: L2 down_proj[13,1489] ratio 2366.6 w=-0.0598
+  round 13: L2 down_proj[1,128] ratio 2002.5 w=-0.0347
+  round 14: L2 down_proj[1,1489] ratio 1266.7 w=-0.0334
+  round 15: L2 down_proj[277,55] ratio 1198.5 w=-0.0159
+  round 16: L2 down_proj[13,321] ratio 1115.0 w=-0.0586
+  round 17: L2 down_proj[23,55] ratio 796.4 w=0.0077
+  round 18: L2 down_proj[3,55] ratio 773.7 w=0.0082
+  round 19: L2 down_proj[277,128] ratio 773.7 w=0.0121
+best residual max/median = 1389.7  (100x gate: True, 30x kill-floor: True)
+wrote e8_activation_census_Qwen3-0_6B.json

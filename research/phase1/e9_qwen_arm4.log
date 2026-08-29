@@ -1,0 +1,9 @@
+Loading weights:   0%|          | 0/311 [00:00<?, ?it/s]Loading weights:  14%|█▍        | 43/311 [00:00<00:00, 416.66it/s]Loading weights:  27%|██▋       | 85/311 [00:00<00:01, 211.84it/s]Loading weights:  38%|███▊      | 117/311 [00:00<00:00, 243.79it/s]Loading weights:  47%|████▋     | 146/311 [00:00<00:00, 243.96it/s]Loading weights:  56%|█████▌    | 174/311 [00:00<00:00, 215.82it/s]Loading weights:  64%|██████▎   | 198/311 [00:00<00:00, 197.37it/s]Loading weights:  72%|███████▏  | 225/311 [00:01<00:00, 190.59it/s]Loading weights:  83%|████████▎ | 258/311 [00:01<00:00, 219.08it/s]Loading weights: 100%|██████████| 311/311 [00:01<00:00, 260.52it/s]
+HTTP Error 504 thrown while requesting HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext.py
+Retrying in 1s [Retry 1/5].
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (299078 > 131072). Running this sequence through the model will result in indexing errors
+resuming: ['bf16', 'w4_g128'] already recorded
+arm 4: g=128 + hold-out top-64 ...
+  w4_g128_holdout_top64: ppl = 48.025  n_changed=64 shrink=1.7710667955023902
+wrote e9_holdout_w4_Qwen3-0_6B.json
